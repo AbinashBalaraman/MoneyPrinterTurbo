@@ -1562,6 +1562,174 @@ def _download_videos_openai_image_on_demand(
     return video_paths
 
 
+def _cf_worker_session():
+    # Force IPv4 to prevent Windows / Cloudflare IPv6 handshake timeouts
+    import socket
+    import urllib3.util.connection as urllib3_cn
+
+    try:
+        urllib3_cn.allowed_gai_family = lambda: socket.AF_INET
+    except Exception:
+        pass
+    session = requests.Session()
+    return session
+
+
+def generate_images_cf_worker(
+    search_term: str,
+    minimum_duration: int,
+    video_aspect: VideoAspect = VideoAspect.portrait,
+    save_dir: str = "",
+) -> List[MaterialInfo]:
+    """
+    用 Cloudflare Worker 文生图端点为一个脚本关键词生成一张图片并保存到本地。
+    """
+    aspect = VideoAspect(video_aspect)
+    clip_duration = max(int(minimum_duration), 1)
+
+    url = (
+        str(config.app.get("cf_worker_image_url", "") or "").strip()
+        or os.environ.get("CF_WORKER_IMAGE_URL", "")
+        or "https://crimson-paper-7573.poruabi3.workers.dev"
+    ).strip()
+    key = (
+        str(config.app.get("cf_worker_image_key", "") or "").strip()
+        or os.environ.get("CF_WORKER_IMAGE_KEY", "")
+        or ""
+    ).strip()
+
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+    }
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+
+    logger.info(
+        f"generating image via Cloudflare Worker: term={search_term!r}, url={url}"
+    )
+
+    try:
+        session = _cf_worker_session()
+        response = session.post(
+            url,
+            json={"prompt": search_term},
+            headers=headers,
+            timeout=120,
+        )
+        if response.status_code != 200:
+            logger.error(
+                f"cloudflare worker image generation failed: term={search_term!r}, "
+                f"status={response.status_code}, response={response.text[:200]}"
+            )
+            return []
+        image_bytes = response.content
+    except Exception as e:
+        logger.error(
+            f"cloudflare worker request exception: term={search_term!r}, "
+            f"error={type(e).__name__}: {e}"
+        )
+        return []
+
+    try:
+        image_path, width, height = _save_openai_image_file(image_bytes, save_dir)
+    except _OpenAIImageDecodeError as e:
+        logger.error(
+            "cloudflare worker image response is not a decodable image, skipping term: "
+            f"term={search_term!r}, error={type(e).__name__}, detail={e}"
+        )
+        return []
+
+    item = MaterialInfo()
+    item.provider = "cf_worker"
+    item.url = image_path
+    item.duration = clip_duration
+    item.source_info = {
+        "provider": "cf_worker",
+        "search_term": search_term,
+        "rendition": {
+            "id": None,
+            "width": width,
+            "height": height,
+        },
+    }
+    return [item]
+
+
+def _download_videos_cf_worker_on_demand(
+    *,
+    task_id: str,
+    search_terms: List[str],
+    video_aspect: VideoAspect,
+    audio_duration: float,
+    max_clip_duration: int,
+    material_directory: str,
+) -> List[str]:
+    """
+    按脚本片段顺序逐张生成 Cloudflare Worker AI 图片并渲染为动态视频片段，凑够所需总时长立即停止。
+    """
+    if not material_directory:
+        material_directory = utils.task_dir(task_id)
+
+    video_paths: List[str] = []
+    material_sources: list[dict[str, Any]] = []
+    total_duration = 0.0
+
+    try:
+        required_duration = float(audio_duration)
+    except (TypeError, ValueError):
+        required_duration = 0.0
+    if required_duration <= 0:
+        logger.warning(
+            "skip cf_worker image generation because required audio duration is "
+            f"not positive: duration={audio_duration}"
+        )
+        _persist_material_sources(task_id, material_sources)
+        return video_paths
+
+    for search_term in search_terms:
+        items = generate_images_cf_worker(
+            search_term=search_term,
+            minimum_duration=max_clip_duration,
+            video_aspect=video_aspect,
+            save_dir=material_directory,
+        )
+        for item in items:
+            video_file = _render_openai_image_video(item.url, max_clip_duration)
+            if not video_file:
+                continue
+            logger.info(f"cf_worker image material rendered: {video_file}")
+            video_paths.append(video_file)
+            try:
+                material_sources.append(_material_source_record(item, video_file))
+            except Exception as source_error:
+                logger.warning(
+                    "failed to prepare generated material source record: "
+                    f"provider=cf_worker, "
+                    f"error={type(source_error).__name__}, detail={source_error}"
+                )
+            total_duration += min(max_clip_duration, item.duration)
+            if total_duration >= required_duration:
+                break
+        if total_duration >= required_duration:
+            logger.info(
+                "generated image materials cover the required duration, stop "
+                f"generating more images: generated={total_duration:.1f}s, "
+                f"required={required_duration:.1f}s"
+            )
+            break
+
+    logger.success(
+        f"generated and rendered {len(video_paths)} cf_worker image materials"
+    )
+    _persist_material_sources(task_id, material_sources)
+    return video_paths
+
+
 def _search_videos_with_cache(
     provider: str,
     search_videos: Callable[..., List[MaterialInfo]],
@@ -1746,6 +1914,15 @@ def download_videos(
         # 所需时长立即停止。生成结果是一次性的本地图片文件，也不参与 24
         # 小时搜索缓存——缓存会让不同任务反复拿到同一张图。
         return _download_videos_openai_image_on_demand(
+            task_id=task_id,
+            search_terms=search_terms,
+            video_aspect=video_aspect,
+            audio_duration=audio_duration,
+            max_clip_duration=max_clip_duration,
+            material_directory=material_directory,
+        )
+    if source in ("cf_worker", "cf_worker_image"):
+        return _download_videos_cf_worker_on_demand(
             task_id=task_id,
             search_terms=search_terms,
             video_aspect=video_aspect,

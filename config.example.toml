@@ -249,6 +249,12 @@ openai_api_key = ""
 openai_base_url = ""
 openai_model_name = ""
 
+# OpenCode AI Zen
+opencode_api_key = ""
+opencode_base_url = "https://opencode.ai/zen/v1"
+opencode_model_name = "muse-spark-1.3-contributor-free"
+opencode_reasoning = ""
+
 # Anthropic Claude, called through the OpenAI-compatible endpoint.
 # API key: https://platform.claude.com/settings/keys
 anthropic_api_key = ""

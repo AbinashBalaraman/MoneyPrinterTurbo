@@ -14,6 +14,12 @@ from app import __version__
 
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 config_file = f"{root_dir}/config.toml"
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(root_dir, ".env"), override=True)
+except Exception:
+    pass
 _CONTAINER_CGROUP_MARKERS = ("docker", "containerd", "kubepods", "libpod", "podman")
 _DOCKER_HOST_GATEWAY_NAME = "host.docker.internal"
 _config_save_lock = threading.RLock()
@@ -582,6 +588,57 @@ app["redis_host"] = os.getenv(
     "MPT_APP_REDIS_HOST",
     os.getenv("REDIS_HOST", app.get("redis_host", "localhost")),
 )
+
+def _sync_env_to_config():
+    env_mappings = {
+        "LLM_PROVIDER": ("app", "llm_provider"),
+        "GEMINI_API_KEY": ("app", "gemini_api_key"),
+        "GEMINI_MODEL_NAME": ("app", "gemini_model_name"),
+        "OPENAI_API_KEY": ("app", "openai_api_key"),
+        "OPENAI_MODEL_NAME": ("app", "openai_model_name"),
+        "OPENAI_BASE_URL": ("app", "openai_base_url"),
+        "DEEPSEEK_API_KEY": ("app", "deepseek_api_key"),
+        "DEEPSEEK_MODEL_NAME": ("app", "deepseek_model_name"),
+        "DEEPSEEK_BASE_URL": ("app", "deepseek_base_url"),
+        "GROQ_API_KEY": ("app", "groq_api_key"),
+        "GROQ_MODEL_NAME": ("app", "groq_model_name"),
+        "MOONSHOT_API_KEY": ("app", "moonshot_api_key"),
+        "VIDEO_SOURCE": ("app", "video_source"),
+        "ELEVENLABS_API_KEY": ("elevenlabs", "api_key"),
+        "AZURE_SPEECH_KEY": ("azure", "speech_key"),
+        "AZURE_SPEECH_REGION": ("azure", "speech_region"),
+        "METASO_MINIMAX_API_KEY": ("app", "metaso_minimax_api_key"),
+        "VOLCENGINE_ARK_API_KEY": ("app", "volcengine_seedance_api_key"),
+        "OFOX_API_KEY": ("app", "ofox_api_key"),
+        "OPENCODE_API_KEY": ("app", "opencode_api_key"),
+        "OPENCODE_BASE_URL": ("app", "opencode_base_url"),
+        "OPENCODE_MODEL_NAME": ("app", "opencode_model_name"),
+        "OPENCODE_REASONING": ("app", "opencode_reasoning"),
+        "CF_WORKER_IMAGE_URL": ("app", "cf_worker_image_url"),
+        "CF_WORKER_IMAGE_KEY": ("app", "cf_worker_image_key"),
+    }
+    for env_var, (section_name, key) in env_mappings.items():
+        val = os.getenv(env_var)
+        if val and val.strip():
+            if section_name == "app":
+                app[key] = val.strip()
+            elif section_name == "elevenlabs":
+                elevenlabs[key] = val.strip()
+            elif section_name == "azure":
+                azure[key] = val.strip()
+
+    for env_list_var, target_key in [
+        ("PEXELS_API_KEY", "pexels_api_keys"),
+        ("PIXABAY_API_KEY", "pixabay_api_keys"),
+        ("COVERR_API_KEY", "coverr_api_keys"),
+    ]:
+        val = os.getenv(env_list_var)
+        if val and val.strip():
+            cleaned = [k.strip() for k in val.split(",") if k.strip()]
+            if cleaned:
+                app[target_key] = cleaned
+
+_sync_env_to_config()
 
 ffmpeg_path = app.get("ffmpeg_path", "")
 if ffmpeg_path and os.path.isfile(ffmpeg_path):

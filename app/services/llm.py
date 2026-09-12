@@ -403,6 +403,19 @@ def _generate_response(prompt: str, app_config=None) -> str:
 
             return _normalize_text_response(generated_text, llm_provider)
 
+        if adapter == "opencode":
+            from app.services.opencode import generate_opencode_response
+
+            reasoning = extra_values.get("reasoning")
+            generated_text = generate_opencode_response(
+                api_key=api_key,
+                base_url=base_url,
+                model_name=model_name,
+                prompt=prompt,
+                reasoning_effort=reasoning,
+            )
+            return _normalize_text_response(generated_text, llm_provider)
+
         if adapter == "cloudflare_ai_gateway":
             account_id = extra_values["account_id"]
             gateway_id = extra_values["gateway_id"]

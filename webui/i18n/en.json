@@ -515,6 +515,8 @@
     "OFox Upstream Vendor Help": "Which upstream vendor serves OFox video generation. BytePlus (international) is the default with a consistent content policy; Volcano Engine is the mainland-China vendor; Auto lets the OFox gateway load-balance across vendors.",
     "OFox Vendor BytePlus": "BytePlus (International, default)",
     "OFox Vendor Volcengine": "Volcano Engine (Mainland China)",
-    "OFox Vendor Auto": "Auto (gateway load balancing)"
+    "OFox Vendor Auto": "Auto (gateway load balancing)",
+    "llm_provider_label.opencode": "OpenCode AI Zen",
+    "llm_provider_tips.opencode": "##### OpenCode AI Zen Configuration\n- **API Key**: enter your OpenCode Zen API key (supports free tier models)\n- **Base Url**: defaults to `{default_base_url}`\n- **Model Name**: defaults to `{default_model}` (e.g. `muse-spark-1.3-contributor-free`, `deepseek-v4-flash-free`, `mimo-v2.5-free`, `nemotron-3-ultra-free`)\n- **Reasoning**: leave empty for auto-detection (`xhigh` for Muse, `high` for DeepSeek/Mimo, `off` for Nemotron)"
   }
 }

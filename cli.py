@@ -45,6 +45,7 @@ _CLI_VIDEO_SOURCES = (
     "ofox",
     "metaso_minimax",
     "openai_image",
+    "cf_worker",
     "local",
 )
 

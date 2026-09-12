@@ -310,6 +310,21 @@ LLM_PROVIDER_REGISTRY = (
         default_model="mimo-v2.5-pro",
         default_base_url="https://api.xiaomimimo.com/v1",
     ),
+    LLMProviderSpec(
+        "opencode",
+        "OpenCode AI Zen",
+        adapter="opencode",
+        api_key_url="https://opencode.ai/zen/v1",
+        default_model="muse-spark-1.3-contributor-free",
+        default_base_url="https://opencode.ai/zen/v1",
+        extra_fields=(
+            LLMProviderField(
+                "reasoning",
+                "Reasoning Effort",
+                default_value="",
+            ),
+        ),
+    ),
     # 聚合与统一接入平台
     LLMProviderSpec(
         "shengsuanyun",
