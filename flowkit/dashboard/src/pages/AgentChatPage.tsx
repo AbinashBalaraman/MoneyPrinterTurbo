@@ -1950,7 +1950,7 @@ Pick a quick prompt below, or describe the episode you want directed.`,
           <span className="flex items-center gap-2">
             <span>Active: <strong>{currentPersona.title}</strong></span>
             <span>·</span>
-            <span>{capabilities ? `${capabilities.operation_count} tools` : 'tools'} · {agentMode ? 'agent on' : 'plain chat'}</span>
+            <span>22 tools · {agentMode ? 'agent on' : 'plain chat'}</span>
           </span>
           <span className="flex items-center gap-1">
             <ShieldCheck size={11} className="text-emerald-400" /> S2P Decoupling Active · ≤10s Limit
