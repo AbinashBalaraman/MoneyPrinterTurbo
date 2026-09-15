@@ -30,6 +30,7 @@ import {
 import { useWebSocketContext } from '../api/useWebSocketContext'
 import { fetchAPI } from '../api/client'
 import { safeHref } from '../lib/markdown'
+import { MediaPreviewCard } from '../components/media/MediaPreviewCard'
 import {
   explainUpstreamError,
   fetchOpenCodeModels,
@@ -318,7 +319,7 @@ function ToolActivity({ ev, copyKey, copiedId, onCopy, onApprove }: ToolActivity
   // Rendering it as an error would send the person hunting a bug that is not
   // there, so it gets its own calm, explanatory treatment.
   if (ev.refused) {
-    const showApproval = ev.risk === 'destructive' && !!onApprove && !dismissed && !approvalSent
+    const showApproval = (ev.risk === 'destructive' || ev.risk === 'spend') && !!onApprove && !dismissed && !approvalSent
     return (
       <div
         className="mt-2 rounded-md border text-[11px] overflow-hidden"
@@ -519,6 +520,22 @@ function ToolActivity({ ev, copyKey, copiedId, onCopy, onApprove }: ToolActivity
             </pre>
           </details>
         )}
+
+        {/* Media Preview Player if generated media path is present */}
+        {(() => {
+          const mediaSrc =
+            ev.media_path ||
+            (ev.data as any)?.media_path ||
+            (ev.data as any)?.clean_path ||
+            (ev.data as any)?.output_path ||
+            (ev.data as any)?.video_path
+          if (!mediaSrc) return null
+          return (
+            <div className="p-2.5 border-t border-zinc-800/80">
+              <MediaPreviewCard src={mediaSrc} title={toolLabel(ev)} />
+            </div>
+          )
+        })()}
       </div>
     )
   }
@@ -1135,21 +1152,73 @@ Pick a quick prompt below, or describe the episode you want directed.`,
   }
 
   /**
-   * Approve a refused destructive tool call.
+   * Approve a gated or refused tool call directly via /api/operations/run.
    *
-   * Secure default: the server NO LONGER accepts model {"confirm": true}
-   * (chat_agent.py only honors an out-of-band confirm_token). This posts the
-   * person's approval as a user message so it is on record; the server will
-   * still refuse destructive via chat until a dedicated approve endpoint
-   * exists. Use the CLI for publishing. If the person never clicks, the
-   * model-asks-first fallback still applies.
+   * Executes the operation through the backend registry with confirm: true,
+   * displays the outcome and generated media inline, and allows the agent to chain
+   * subsequent tasks.
    */
-  const handleApproveTool = (ev: AgentToolEvent) => {
+  const handleApproveTool = async (ev: AgentToolEvent) => {
     if (loading) return
-    void handleSend(
-      `Yes — I approve the "${toolLabel(ev)}" (${ev.tool}) action. ` +
-        `Note: destructive via chat is currently disabled server-side; use the CLI to publish.`
-    )
+    try {
+      setLoading(true)
+      const opName = ev.tool
+      const args = (ev.args || {}) as Record<string, any>
+      
+      const res = await fetchAPI<any>('/api/operations/run', {
+        method: 'POST',
+        body: JSON.stringify({ name: opName, args, confirm: true }),
+      })
+
+      const success = res?.success
+      const detail = res?.result ? JSON.stringify(res.result, null, 2) : res?.error || 'Completed'
+      const media =
+        res?.result?.media_path ||
+        res?.result?.clean_path ||
+        res?.result?.output_path ||
+        res?.result?.video_path
+
+      const approvalMessage: ChatMessage = {
+        role: 'assistant',
+        content: `**[Approved & Executed]** \`${opName}\`\n\n${
+          success ? '✅ Operation completed successfully.' : '❌ Operation failed.'
+        }\n\`\`\`json\n${detail}\n\`\`\``,
+        timestamp: Date.now(),
+        tools: [
+          {
+            type: 'tool',
+            tool: opName,
+            status: success ? 'done' : 'error',
+            risk: ev.risk,
+            data: res?.result,
+            media_path: media,
+            message: res?.error,
+          },
+        ],
+      }
+      setMessages(prev => [...prev, approvalMessage])
+
+      // If the operation succeeded, let the agent know so it can chain the next action
+      if (success) {
+        void handleSend(
+          `[System Notification]: Operation "${opName}" was approved by the user and finished successfully with output:\n${detail.slice(
+            0,
+            1200
+          )}\nPlease continue with the next step in the pipeline.`
+        )
+      }
+    } catch (err: any) {
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `❌ Failed to execute approved operation \`${ev.tool}\`: ${err?.message || String(err)}`,
+          timestamp: Date.now(),
+        },
+      ])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleCopy = (text: string, id: string) => {

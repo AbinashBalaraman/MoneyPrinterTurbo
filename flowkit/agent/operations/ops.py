@@ -103,3 +103,115 @@ async def read_logs(
         "stages": log_bus.stages(),
         "note": "Oldest first within the returned window; newest last.",
     }
+
+
+def _mask(val: str | None) -> str | None:
+    if not val or not val.strip():
+        return None
+    v = val.strip()
+    if len(v) <= 8:
+        return "********"
+    return f"{v[:4]}...{v[-4:]}"
+
+
+@operation(
+    name="credentials_status",
+    department="ops",
+    risk=RISK_READ,
+    description="Inspect configuration status of external API keys & OAuth credentials across the pipeline.",
+    takes_args=False,
+)
+async def credentials_status() -> dict:
+    """Check availability of external keys and platform distribution credentials."""
+    import os
+    from agent import config
+
+    google_key = getattr(config, "GOOGLE_API_KEY", None) or os.environ.get("GOOGLE_API_KEY", "")
+    opencode_key = getattr(config, "OPENCODE_API_KEY", None) or os.environ.get("OPENCODE_API_KEY", "")
+    anthropic_key = getattr(config, "ANTHROPIC_API_KEY", None) or os.environ.get("ANTHROPIC_API_KEY", "")
+    suno_key = getattr(config, "SUNO_API_KEY", None) or os.environ.get("SUNO_API_KEY", "")
+
+    yt_id = os.environ.get("YOUTUBE_CLIENT_ID", "").strip()
+    yt_sec = os.environ.get("YOUTUBE_CLIENT_SECRET", "").strip()
+    yt_ref = os.environ.get("YOUTUBE_REFRESH_TOKEN", "").strip()
+
+    tt_tok = os.environ.get("TIKTOK_ACCESS_TOKEN", "").strip()
+    tt_id = os.environ.get("TIKTOK_OPEN_ID", "").strip()
+
+    ig_tok = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "").strip()
+    ig_id = os.environ.get("INSTAGRAM_ACCOUNT_ID", "").strip()
+
+    eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    azure_key = os.environ.get("AZURE_SPEECH_KEY", "").strip()
+
+    providers = {
+        "google_flow": {
+            "name": "Google Flow / Veo / Gemini",
+            "department": "render",
+            "configured": bool(google_key),
+            "preview": _mask(google_key),
+            "purpose": "Google Flow batch execution and still conditioning",
+        },
+        "opencode": {
+            "name": "OpenCode AI Studio",
+            "department": "assistant",
+            "configured": bool(opencode_key),
+            "preview": _mask(opencode_key),
+            "purpose": "Autonomous Chat Studio operator and scriptwriting",
+        },
+        "youtube": {
+            "name": "YouTube Data API v3",
+            "department": "publish",
+            "configured": bool(yt_id and yt_sec and yt_ref),
+            "details": {
+                "client_id": bool(yt_id),
+                "client_secret": bool(yt_sec),
+                "refresh_token": bool(yt_ref),
+            },
+            "purpose": "Direct YouTube Shorts automated distribution",
+        },
+        "tiktok": {
+            "name": "TikTok Content Posting API",
+            "department": "publish",
+            "configured": bool(tt_tok and tt_id),
+            "purpose": "Direct TikTok video publishing",
+        },
+        "instagram": {
+            "name": "Instagram Graph API (Reels)",
+            "department": "publish",
+            "configured": bool(ig_tok and ig_id),
+            "purpose": "Direct Instagram Reels publishing",
+        },
+        "suno": {
+            "name": "Suno Music API",
+            "department": "assembly",
+            "configured": bool(suno_key),
+            "preview": _mask(suno_key),
+            "purpose": "AI background music generation",
+        },
+        "elevenlabs": {
+            "name": "ElevenLabs TTS",
+            "department": "assembly",
+            "configured": bool(eleven_key),
+            "preview": _mask(eleven_key),
+            "purpose": "High-fidelity AI voice narration",
+        },
+        "azure_speech": {
+            "name": "Azure Speech Services",
+            "department": "assembly",
+            "configured": bool(azure_key),
+            "preview": _mask(azure_key),
+            "purpose": "Multi-lingual TTS speech synthesis",
+        },
+    }
+
+    configured_count = sum(1 for p in providers.values() if p["configured"])
+
+    return {
+        "total_providers": len(providers),
+        "configured_count": configured_count,
+        "providers": providers,
+        "env_file": "AutoShorts/.env",
+        "note": "Secrets are masked for security. Edit AutoShorts/.env to configure missing providers.",
+    }
+

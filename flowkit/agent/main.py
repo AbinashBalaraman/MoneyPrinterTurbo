@@ -30,6 +30,7 @@ from agent.api.logs import router as logs_router
 from agent.api.publications import router as publications_router
 from agent.api.opencode import router as opencode_router
 from agent.api.operations import router as operations_router
+from agent.api.media import router as media_router
 from agent.worker.processor import get_worker_controller
 from agent.services.flow_client import get_flow_client
 from agent.services.event_bus import event_bus
@@ -184,6 +185,7 @@ app.include_router(publications_router, prefix="/api")
 # server-side owner of the OpenCode key and the model catalogue.
 app.include_router(opencode_router)
 app.include_router(operations_router)
+app.include_router(media_router)
 app.include_router(agent_tools_router, prefix="/api")
 
 

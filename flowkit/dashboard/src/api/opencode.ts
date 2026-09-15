@@ -373,6 +373,8 @@ export interface AgentToolEvent {
   data?: unknown
   /** Error text when `status` is `error`. */
   message?: string
+  /** Detected generated media file path (video, image, audio) for inline playback. */
+  media_path?: string
 }
 
 /** Translate one SSE frame, invoking the matching handler. */

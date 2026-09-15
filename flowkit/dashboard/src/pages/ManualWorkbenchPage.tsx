@@ -23,11 +23,25 @@ import {
   ArrowUpRight,
   Clock,
   Settings2,
+  Eye,
+  Music,
+  Image as ImageIcon,
+  FolderOpen,
 } from 'lucide-react'
 import { fetchAPI } from '../api/client'
 import { useTranslation } from '../i18n/useTranslation'
 import { useWebSocketContext } from '../api/useWebSocketContext'
 import { Button } from '../components/ui/button'
+import { MediaPreviewCard } from '../components/media/MediaPreviewCard'
+
+interface MediaArtifact {
+  name: string
+  path: string
+  type: 'video' | 'image' | 'audio'
+  size_bytes: number
+  mtime: string
+  preview_url: string
+}
 
 interface OperationSpec {
   name: string
@@ -111,9 +125,115 @@ export default function ManualWorkbenchPage() {
   ]
 }`)
 
+  const [artifacts, setArtifacts] = useState<MediaArtifact[]>([])
+  const [loadingArtifacts, setLoadingArtifacts] = useState(false)
+  const [artifactFilter, setArtifactFilter] = useState<'all' | 'video' | 'image' | 'audio'>('all')
+  const [activePreview, setActivePreview] = useState<{ src: string; title?: string; type?: 'video' | 'image' | 'audio'; fileSize?: string } | null>(null)
+
+  // Queue monitoring & batch scheduling states
+  const [autoPollQueue, setAutoPollQueue] = useState(false)
+  const [queueSummary, setQueueSummary] = useState<{ total?: number; outstanding?: number; request_counts?: Record<string, number> } | null>(null)
+  
+  const [scheduleIntervalHours, setScheduleIntervalHours] = useState('0')
+  const [isScheduled, setIsScheduled] = useState(false)
+  const [nextScheduleTime, setNextScheduleTime] = useState<string | null>(null)
+
   useEffect(() => {
     loadCatalog()
+    loadArtifacts()
   }, [])
+
+  // Auto-polling queue monitor
+  useEffect(() => {
+    if (!autoPollQueue) return
+    const fetchQueue = async () => {
+      try {
+        const res = await fetchAPI<any>('/api/operations/run', {
+          method: 'POST',
+          body: JSON.stringify({ name: 'queue_status', args: {} }),
+        })
+        if (res?.success && res.result) {
+          setQueueSummary(res.result)
+        }
+      } catch (e) {
+        console.debug('Auto poll failed:', e)
+      }
+    }
+    fetchQueue()
+    const interval = setInterval(fetchQueue, 4000)
+    return () => clearInterval(interval)
+  }, [autoPollQueue])
+
+  // Batch automation scheduler
+  useEffect(() => {
+    if (!isScheduled || scheduleIntervalHours === '0') {
+      setNextScheduleTime(null)
+      return
+    }
+    const hours = parseFloat(scheduleIntervalHours)
+    const ms = hours * 3600 * 1000
+    const next = new Date(Date.now() + ms)
+    setNextScheduleTime(next.toLocaleTimeString())
+
+    const timer = setTimeout(() => {
+      executeOperation('run_batch', {
+        series_id: batchSeriesId,
+        episodes: parseInt(batchCount) || 1,
+      })
+      const nextRun = new Date(Date.now() + ms)
+      setNextScheduleTime(nextRun.toLocaleTimeString())
+    }, ms)
+
+    return () => clearTimeout(timer)
+  }, [isScheduled, scheduleIntervalHours, batchSeriesId, batchCount])
+
+  const loadArtifacts = async () => {
+    setLoadingArtifacts(true)
+    try {
+      const data = await fetchAPI<{ artifacts: MediaArtifact[]; total: number }>('/api/media/artifacts?limit=25')
+      setArtifacts(data.artifacts || [])
+    } catch (err) {
+      console.debug('Failed to load media artifacts:', err)
+    } finally {
+      setLoadingArtifacts(false)
+    }
+  }
+
+  const extractMedia = (res: any): { src: string; type?: 'video' | 'image' | 'audio'; title?: string } | null => {
+    if (!res) return null
+    const candidates: string[] = []
+    const collect = (obj: any) => {
+      if (!obj) return
+      if (typeof obj === 'string') {
+        if (obj.match(/\.(mp4|webm|mov|mkv|png|jpg|jpeg|webp|mp3|wav|ogg)$/i)) {
+          candidates.push(obj)
+        }
+        return
+      }
+      if (typeof obj === 'object') {
+        for (const k of ['clean_path', 'output_path', 'out_path', 'video_path', 'image_path', 'path', 'file', 'preview_url']) {
+          if (obj[k] && typeof obj[k] === 'string' && obj[k].match(/\.(mp4|webm|mov|mkv|png|jpg|jpeg|webp|mp3|wav|ogg)$/i)) {
+            candidates.push(obj[k])
+          }
+        }
+        for (const val of Object.values(obj)) {
+          collect(val)
+        }
+      }
+    }
+    collect(res)
+    if (candidates.length > 0) {
+      const src = candidates[0]
+      const lower = src.toLowerCase()
+      const type = (lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov'))
+        ? 'video'
+        : (lower.endsWith('.mp3') || lower.endsWith('.wav'))
+        ? 'audio'
+        : 'image'
+      return { src, type, title: src.split(/[\\/]/).pop() }
+    }
+    return null
+  }
 
   const loadCatalog = async () => {
     setLoadingCatalog(true)
@@ -149,6 +269,14 @@ export default function ManualWorkbenchPage() {
         timestamp: new Date().toLocaleTimeString(),
         durationMs,
       })
+
+      // Auto-preview detected media artifact
+      const media = extractMedia(res.result)
+      if (media) {
+        setActivePreview(media)
+      }
+      // Refresh artifacts list
+      loadArtifacts()
     } catch (err: any) {
       const durationMs = Math.round(performance.now() - startTime)
       setLastResult({
@@ -244,6 +372,89 @@ export default function ManualWorkbenchPage() {
             <RefreshCw size={13} className={loadingCatalog ? 'animate-spin' : ''} />
             Refresh
           </Button>
+        </div>
+      </div>
+
+      {/* Recent Media Artifacts Strip */}
+      <div
+        className="rounded-xl border p-3 flex flex-col gap-2.5 transition-all"
+        style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-semibold">
+            <Film size={14} className="text-emerald-400" />
+            <span>Recent Pipeline Artifacts ({artifacts.length})</span>
+            <span className="text-[10px] text-zinc-500 font-normal">
+              Direct media playback from storage/ and output/
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {(['all', 'video', 'image', 'audio'] as const).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setArtifactFilter(filter)}
+                className={`px-2 py-0.5 rounded text-[10px] uppercase font-mono transition-colors ${
+                  artifactFilter === filter
+                    ? 'bg-blue-600 text-white font-semibold'
+                    : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
+
+            <button
+              onClick={loadArtifacts}
+              disabled={loadingArtifacts}
+              title="Refresh artifacts"
+              className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition ml-1"
+            >
+              <RefreshCw size={12} className={loadingArtifacts ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
+
+        {/* Artifact Chips Scrollbar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+          {artifacts
+            .filter((a) => artifactFilter === 'all' || a.type === artifactFilter)
+            .map((art) => {
+              const isSelected = activePreview?.src === art.preview_url || activePreview?.src === art.path
+              return (
+                <button
+                  key={art.path}
+                  onClick={() =>
+                    setActivePreview({
+                      src: art.preview_url,
+                      title: art.name,
+                      type: art.type,
+                      fileSize: (art.size_bytes / (1024 * 1024)).toFixed(1) + ' MB',
+                    })
+                  }
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left shrink-0 transition-all ${
+                    isSelected
+                      ? 'bg-blue-600/20 border-blue-500 text-blue-300 shadow-md'
+                      : 'bg-zinc-900/90 border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:bg-zinc-850'
+                  }`}
+                >
+                  {art.type === 'video' && <Film size={12} className="text-emerald-400 shrink-0" />}
+                  {art.type === 'image' && <ImageIcon size={12} className="text-sky-400 shrink-0" />}
+                  {art.type === 'audio' && <Music size={12} className="text-violet-400 shrink-0" />}
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[11px] font-medium truncate max-w-[140px]">{art.name}</span>
+                    <span className="text-[9px] text-zinc-500 font-mono">
+                      {(art.size_bytes / (1024 * 1024)).toFixed(1)}MB
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
+          {artifacts.length === 0 && !loadingArtifacts && (
+            <span className="text-[11px] text-zinc-500 py-1 italic">
+              No media artifacts generated yet. Run an image generation, assembly or scrubber operation below.
+            </span>
+          )}
         </div>
       </div>
 
@@ -391,6 +602,60 @@ export default function ManualWorkbenchPage() {
                   >
                     <Play size={13} />
                     Execute Batch Run
+                  </Button>
+                </div>
+              </div>
+
+              {/* Scheduled Batch Execution Card */}
+              <div className="p-4 rounded-lg border flex flex-col gap-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock size={15} className="text-violet-400" />
+                    <span className="text-xs font-bold">Series Batch Automation &amp; Scheduler</span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-semibold uppercase ${isScheduled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-400'}`}>
+                      {isScheduled ? 'ACTIVE SCHEDULE' : 'STANDBY'}
+                    </span>
+                  </div>
+                  {getRiskBadge('spend')}
+                </div>
+                <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                  Set an automated timer or interval to run multi-episode batches unattended in the background.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] block mb-1 font-semibold" style={{ color: 'var(--muted)' }}>Interval Trigger</label>
+                    <select
+                      value={scheduleIntervalHours}
+                      onChange={e => setScheduleIntervalHours(e.target.value)}
+                      disabled={isScheduled}
+                      className="w-full px-2.5 py-1.5 rounded text-xs border outline-none"
+                      style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                    >
+                      <option value="0">Manual / Off</option>
+                      <option value="1">Every 1 Hour</option>
+                      <option value="6">Every 6 Hours</option>
+                      <option value="12">Every 12 Hours</option>
+                      <option value="24">Daily (Every 24 Hours)</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2 flex flex-col justify-end">
+                    <div className="flex items-center justify-between text-xs py-1.5 px-3 rounded border font-mono" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                      <span className="text-zinc-400">Next Scheduled Trigger:</span>
+                      <span className="font-semibold text-zinc-200">
+                        {isScheduled && nextScheduleTime ? nextScheduleTime : 'Not scheduled'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="pt-2 flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => setIsScheduled(!isScheduled)}
+                    disabled={scheduleIntervalHours === '0'}
+                    className={`h-8 gap-2 text-xs font-semibold ${isScheduled ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-violet-600 hover:bg-violet-700 text-white'}`}
+                  >
+                    <Clock size={13} />
+                    {isScheduled ? 'Pause Scheduled Automation' : 'Arm Batch Schedule'}
                   </Button>
                 </div>
               </div>
@@ -582,23 +847,49 @@ export default function ManualWorkbenchPage() {
                 <div className="p-4 rounded-lg border flex flex-col justify-between gap-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold">Queue Status</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold">Queue Monitor</span>
+                        {autoPollQueue && (
+                          <span className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                        )}
+                      </div>
                       {getRiskBadge('read')}
                     </div>
                     <p className="text-[11px] mt-1" style={{ color: 'var(--muted)' }}>
                       Inspects pending, processing and settled generation requests.
                     </p>
+
+                    {queueSummary && (
+                      <div className="mt-2.5 p-2 rounded border bg-zinc-900/80 border-zinc-800 text-[11px] font-mono flex items-center justify-between">
+                        <span className="text-zinc-400">Total: <strong className="text-zinc-200">{queueSummary.total ?? 0}</strong></span>
+                        <span className="text-amber-400">Outstanding: <strong>{queueSummary.outstanding ?? 0}</strong></span>
+                      </div>
+                    )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => executeOperation('queue_status')}
-                    disabled={runningOp === 'queue_status'}
-                    className="h-8 gap-2 text-xs"
-                  >
-                    <Play size={13} />
-                    Check queue_status
-                  </Button>
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => executeOperation('queue_status')}
+                      disabled={runningOp === 'queue_status'}
+                      className="h-8 gap-2 text-xs flex-1"
+                    >
+                      <Play size={13} />
+                      Poll Now
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={autoPollQueue ? 'default' : 'outline'}
+                      onClick={() => setAutoPollQueue(!autoPollQueue)}
+                      className={`h-8 gap-1.5 text-xs ${autoPollQueue ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}`}
+                    >
+                      <RefreshCw size={12} className={autoPollQueue ? 'animate-spin' : ''} />
+                      {autoPollQueue ? 'Auto (4s)' : 'Auto Poll'}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="p-4 rounded-lg border flex flex-col justify-between gap-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
@@ -821,6 +1112,30 @@ export default function ManualWorkbenchPage() {
                   </Button>
                 </div>
               </div>
+
+              {/* Credentials & Distribution Health Check Card */}
+              <div className="p-4 rounded-lg border flex items-center justify-between" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck size={15} className="text-emerald-400" />
+                    <span className="text-xs font-bold">Platform OAuth &amp; Distribution Credentials</span>
+                    {getRiskBadge('read')}
+                  </div>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                    Check if YouTube, TikTok, and Instagram API tokens are configured before publishing.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => executeOperation('credentials_status')}
+                  disabled={runningOp === 'credentials_status'}
+                  className="h-8 gap-2 text-xs"
+                >
+                  <ShieldCheck size={13} />
+                  Verify Credentials
+                </Button>
+              </div>
             </div>
           )}
 
@@ -847,6 +1162,29 @@ export default function ManualWorkbenchPage() {
                 >
                   <Play size={13} />
                   Fetch Logs
+                </Button>
+              </div>
+
+              <div className="p-4 rounded-lg border flex items-center justify-between" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck size={15} className="text-sky-400" />
+                    <span className="text-xs font-bold">Pipeline API Key &amp; Environment Audit</span>
+                    {getRiskBadge('read')}
+                  </div>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--muted)' }}>
+                    Audit Google Flow, OpenCode, Suno, ElevenLabs, and social distribution tokens across .env.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => executeOperation('credentials_status')}
+                  disabled={runningOp === 'credentials_status'}
+                  className="h-8 gap-2 text-xs"
+                >
+                  <ShieldCheck size={13} />
+                  Audit Environment
                 </Button>
               </div>
             </div>
@@ -888,22 +1226,50 @@ export default function ManualWorkbenchPage() {
               )}
             </div>
 
+            {/* Active Media Preview Player */}
+            {activePreview && (
+              <div className="p-4 border-b border-zinc-800/80 bg-zinc-950/60">
+                <MediaPreviewCard
+                  src={activePreview.src}
+                  title={activePreview.title}
+                  type={activePreview.type}
+                  fileSize={activePreview.fileSize}
+                  onClose={() => setActivePreview(null)}
+                />
+              </div>
+            )}
+
             <div className="p-4 overflow-auto max-h-80 min-h-32 text-xs font-mono" style={{ background: '#090913' }}>
               {lastResult ? (
                 <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    {lastResult.success ? (
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
-                        <CheckCircle2 size={12} /> SUCCESS: {lastResult.operation}
-                      </span>
-                    ) : lastResult.refused ? (
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
-                        <AlertTriangle size={12} /> REFUSED: {lastResult.operation}
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-red-500/10 text-red-400 border border-red-500/20 font-bold">
-                        <XCircle size={12} /> ERROR: {lastResult.operation}
-                      </span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {lastResult.success ? (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                          <CheckCircle2 size={12} /> SUCCESS: {lastResult.operation}
+                        </span>
+                      ) : lastResult.refused ? (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
+                          <AlertTriangle size={12} /> REFUSED: {lastResult.operation}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-red-500/10 text-red-400 border border-red-500/20 font-bold">
+                          <XCircle size={12} /> ERROR: {lastResult.operation}
+                        </span>
+                      )}
+                    </div>
+
+                    {extractMedia(lastResult.result) && !activePreview && (
+                      <button
+                        onClick={() => {
+                          const m = extractMedia(lastResult.result)
+                          if (m) setActivePreview(m)
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-600/20 border border-blue-500/40 text-blue-300 text-xs font-medium hover:bg-blue-600/30 transition"
+                      >
+                        <Eye size={12} />
+                        Preview Artifact
+                      </button>
                     )}
                   </div>
                   <pre className="whitespace-pre-wrap leading-relaxed text-[11px]" style={{ color: lastResult.success ? '#93c5fd' : '#fca5a5' }}>

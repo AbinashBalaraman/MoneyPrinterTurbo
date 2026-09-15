@@ -586,7 +586,19 @@ def _result_fields(name: str, result: Any) -> dict[str, Any]:
             summary = " · ".join(parts)
         return {"summary": summary, "data": result}
 
-    return {"data": result} if result is not None else {}
+    # Detect media artifacts produced by tools
+    media_path = None
+    if isinstance(result, dict):
+        for k in ("clean_path", "output_path", "out_path", "video_path", "image_path", "path", "file"):
+            val = result.get(k)
+            if isinstance(val, str) and val.lower().endswith((".mp4", ".mov", ".webm", ".mkv", ".png", ".jpg", ".jpeg", ".webp", ".mp3", ".wav", ".ogg")):
+                media_path = val
+                break
+
+    base = {"data": result} if result is not None else {}
+    if media_path:
+        base["media_path"] = media_path
+    return base
 
 
 def _activity(
@@ -603,7 +615,12 @@ def _activity(
     cannot see is indistinguishable from the assistant being broken.
     """
     args = args or {}
-    event: dict[str, Any] = {"type": "tool", "tool": _UI_TOOL.get(name, name), "status": status}
+    event: dict[str, Any] = {
+        "type": "tool",
+        "tool": _UI_TOOL.get(name, name),
+        "status": status,
+        "args": args,
+    }
 
     op = get_operation(name)
     if op is not None:
