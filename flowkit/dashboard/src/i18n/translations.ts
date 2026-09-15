@@ -53,6 +53,7 @@ const en = {
   'nav.logs': 'Logs',
   'nav.guide': 'Guide',
   'nav.agentStudio': 'Agent Studio',
+  'nav.manual': 'Manual Workbench',
   'app.brandName': 'FLOW KIT',
   'app.brandTag': 'ops console',
   'app.breadcrumbRoot': 'flow kit',

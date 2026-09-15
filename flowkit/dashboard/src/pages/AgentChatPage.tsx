@@ -23,7 +23,9 @@ import {
   Search,
   Database,
   Plus,
-  Square
+  Square,
+  Mic,
+  Sparkles,
 } from 'lucide-react'
 import { useWebSocketContext } from '../api/useWebSocketContext'
 import { fetchAPI } from '../api/client'
@@ -633,6 +635,7 @@ Pick a quick prompt below, or describe the episode you want directed.`,
   )
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [showQuickDrawer, setShowQuickDrawer] = useState(false)
 
   // Save messages
   useEffect(() => {
@@ -1369,12 +1372,12 @@ Pick a quick prompt below, or describe the episode you want directed.`,
 
       {/* Gemini-style empty state: greeting only, composer below does the rest */}
       {isFresh && !showTerminal && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-4">
-          <h1 className="text-3xl font-semibold tracking-tight" style={{ color: 'var(--text)' }}>
-            What are we making today?
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-4">
+          <h1 className="text-4xl md:text-5xl font-normal tracking-tight text-white" style={{ fontFamily: 'var(--font-sans)' }}>
+            Your move, Abinash!
           </h1>
-          <p className="text-xs font-mono" style={{ color: 'var(--muted)' }}>
-            Direct episodes · generate stills · assemble · publish — ask, I run it.
+          <p className="text-xs font-mono max-w-md" style={{ color: 'var(--muted)' }}>
+            Autonomous Pipeline Agent · Direct episodes, generate Google Flow stills, assemble video, and scrub watermarks.
           </p>
         </div>
       )}
@@ -1729,7 +1732,88 @@ Pick a quick prompt below, or describe the episode you want directed.`,
             </span>
           )}
         </div>
+
+        {/* Quick Tools Drawer (triggered by + button) */}
+        {showQuickDrawer && (
+          <div
+            className="p-3 rounded-xl border flex flex-col gap-2 mb-1 animate-in fade-in slide-in-from-bottom-2 duration-150"
+            style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold tracking-wider uppercase text-blue-400 flex items-center gap-1.5">
+                <Sparkles size={13} /> Quick Tools & Actions
+              </span>
+              <span className="text-[10px]" style={{ color: 'var(--muted)' }}>Click to load into composer</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setInput('Direct Episode 2 of Arthur & Rusty: "The Whispering Well". Keep scenes strictly under 10s with high-retention 5-beat pacing.')
+                  setShowQuickDrawer(false)
+                }}
+                className="text-left p-2 rounded-lg border text-xs text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors flex items-center gap-2"
+                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              >
+                <Clapperboard size={14} className="text-blue-400 flex-shrink-0" />
+                <span className="truncate">Direct Episode 2 (Arthur & Rusty)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInput('Queue a vertical 9:16 still image in Google Flow: "Arthur holding a glowing brass lantern deep inside the stone well, cinematic lighting".')
+                  setShowQuickDrawer(false)
+                }}
+                className="text-left p-2 rounded-lg border text-xs text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors flex items-center gap-2"
+                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              >
+                <Sparkles size={14} className="text-amber-400 flex-shrink-0" />
+                <span className="truncate">Generate Google Flow Still</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInput('Check the current request queue status and reference image conditioning for farmer_and_rusty.')
+                  setShowQuickDrawer(false)
+                }}
+                className="text-left p-2 rounded-lg border text-xs text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors flex items-center gap-2"
+                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              >
+                <Database size={14} className="text-emerald-400 flex-shrink-0" />
+                <span className="truncate">Check Queue & Conditioning</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInput('Scrub the AI watermark from storage/output/farmer_and_rusty_ep1.mp4 using the veo_bottom_right delogo profile.')
+                  setShowQuickDrawer(false)
+                }}
+                className="text-left p-2 rounded-lg border text-xs text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors flex items-center gap-2"
+                style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
+              >
+                <Wrench size={14} className="text-purple-400 flex-shrink-0" />
+                <span className="truncate">Scrub Video Watermark</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-2">
+          {/* Quick Tools + Button */}
+          <button
+            type="button"
+            onClick={() => setShowQuickDrawer(prev => !prev)}
+            title={showQuickDrawer ? 'Close tools drawer' : 'Open tools drawer (+)'}
+            aria-label="Add tools"
+            className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all flex-shrink-0 ${
+              showQuickDrawer
+                ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
+                : 'text-slate-400 hover:text-white border-slate-700/80 bg-slate-800/50 hover:bg-slate-800'
+            }`}
+          >
+            <Plus size={16} />
+          </button>
+
           <textarea
             ref={textareaRef}
             id="chat-composer"
@@ -1744,10 +1828,26 @@ Pick a quick prompt below, or describe the episode you want directed.`,
                 handleSend()
               }
             }}
-            placeholder={`Ask ${currentPersona.title} (Press Enter to send, Shift+Enter for new line)...`}
+            placeholder={`Ask Gemini or direct the pipeline (Press Enter to send)...`}
             className="flex-1 bg-transparent border-0 outline-none text-xs resize-none placeholder:text-slate-500 font-sans overflow-y-auto"
             style={{ color: 'var(--text)', maxHeight: '200px' }}
           />
+
+          {/* Voice / Mic Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!input) {
+                setInput('Audit the scene pacing and character consistency for our current series arc.')
+              }
+            }}
+            title="Voice prompt"
+            aria-label="Voice prompt"
+            className="w-9 h-9 rounded-full border border-slate-700/80 bg-slate-800/40 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors flex-shrink-0"
+          >
+            <Mic size={15} />
+          </button>
+
           {/* While a reply is running the primary action becomes Stop. An agent
               turn can run several tool rounds, so without this the only way out
               of a slow or looping reply was reloading the page. */}
@@ -1755,7 +1855,7 @@ Pick a quick prompt below, or describe the episode you want directed.`,
             <Button
               onClick={handleStop}
               aria-label="Stop generating reply"
-              className="h-10 px-4 flex items-center gap-1.5 font-medium transition-all"
+              className="h-9 px-4 rounded-full flex items-center gap-1.5 font-medium transition-all"
               style={{ background: 'var(--red, #ef4444)', color: '#fff' }}
               title="Stop this reply (partial text is kept)"
             >
@@ -1767,7 +1867,7 @@ Pick a quick prompt below, or describe the episode you want directed.`,
               onClick={() => handleSend()}
               disabled={!input.trim()}
               aria-label="Send message"
-              className="h-10 px-4 flex items-center gap-1.5 font-medium transition-all"
+              className="h-9 px-4 rounded-full flex items-center gap-1.5 font-medium transition-all shadow-sm"
               style={{ background: 'var(--accent)', color: '#fff' }}
             >
               <span>Send</span>

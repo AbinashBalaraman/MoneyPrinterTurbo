@@ -31,10 +31,12 @@ venv/
 # Debug and test files
 CLAUDE.md
 debug/
-debug_*.py
-test_*.py
+/debug_*.py
+/test_*.py
 !test/services/test_*.py
 !test/test_*.py
+!flowkit/tests/**
+!shorts_content_engine/tests/**
 streamlit.log
 .coverage
 coverage.xml
