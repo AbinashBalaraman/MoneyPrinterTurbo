@@ -554,16 +554,14 @@ export default function AgentChatPage() {
   const { isConnected: isExtensionConnected } = useWebSocketContext()
 
   // State
-  const [activePersona] = useState<PersonaType>('director')
+  const [activePersona, setActivePersona] = useState<PersonaType>('director')
   // When true the studio shows a real cmd.exe PTY (for CLI agents) instead of chat.
   const [showTerminal, setShowTerminal] = useState(false)
+  const [showModelMenu, setShowModelMenu] = useState(false)
   // Agent mode routes handleSend through POST /api/opencode/agent/stream (tool
   // loop) instead of plain /chat/stream. Default ON for every persona: the
   // assistant acts on the pipeline through server tools instead of narrating
   // what the user should click. Spending and publishing stay server-gated
-  // Agent mode is always on: replies route through the server tool loop so
-  // the assistant acts instead of narrating. Spending and publishing stay
-  // server-gated, so this is safe without a toggle.
   const agentMode = true
   const [selectedModel, setSelectedModel] = useState<string>('muse-spark-1.3-contributor-free')
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('xhigh')
@@ -578,21 +576,19 @@ export default function AgentChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) return JSON.parse(saved)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          if (parsed.length === 1 && parsed[0]?.id === 'msg-init') {
+            return []
+          }
+          return parsed
+        }
+      }
     } catch {
       // ignore
     }
-    return [
-      {
-        id: 'msg-init',
-        role: 'assistant',
-        content: `👋 **Welcome to the Agent Studio!**\n\nI am connected to the **OpenCode AI Gateway** using free contributor models with reasoning capability up to **xhigh**.\n\n**Current Persona:** 🎬 **${PERSONAS.director.title}**\n- Enforces a ≤10s scene duration for Google Flow / Veo\n- Strict 5-phase retention arc (Hook, Tension, Twist, Cliffhanger)\n- Automatic S2P decoupling for character consistency\n\nReasoning traces and token counts shown on a reply come from the model that
-produced it — nothing is estimated.
-
-Pick a quick prompt below, or describe the episode you want directed.`,
-        timestamp: Date.now()
-      }
-    ]
+    return []
   })
 
   // The reply currently being written. It grows in place so the answer is
@@ -725,13 +721,13 @@ Pick a quick prompt below, or describe the episode you want directed.`,
 
   // Health check and Continuity Ledger check for FlowKit server
   const [continuityData, setContinuityData] = useState<any>(null)
-  // Gemini-style empty state: a fresh thread (welcome message only) shows a
-  // greeting instead of the wall of strips and history.
+  // Gemini-style empty state: a fresh thread shows a greeting hero
   const isFresh =
-    messages.length === 1 &&
-    (messages[0]?.id === 'msg-init' ||
-      (messages[0]?.role === 'assistant' &&
-        (messages[0]?.content || '').startsWith('New conversation.')))
+    messages.length === 0 ||
+    (messages.length === 1 &&
+      (messages[0]?.id === 'msg-init' ||
+        (messages[0]?.role === 'assistant' &&
+          (messages[0]?.content || '').startsWith('New conversation.'))))
   const dismissCanon = () => {
     try { localStorage.removeItem('flowkit-canon-dismissed') } catch { /* private mode */ }
   }
@@ -801,14 +797,7 @@ Pick a quick prompt below, or describe the episode you want directed.`,
     }
     setSavedAt(null)
     setSaveError(null)
-    setMessages([
-      {
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content: `New conversation. Ask anything — I act on the pipeline directly.` ,
-        timestamp: Date.now()
-      }
-    ])
+    setMessages([])
   }
 
   const handleSend = async (overridePrompt?: string) => {
@@ -1329,109 +1318,143 @@ Pick a quick prompt below, or describe the episode you want directed.`,
   }
 
   return (
-    <div className="flex flex-col h-full gap-3 overflow-hidden">
-      {/* Studio Top Control Bar */}
-      <div
-        className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-lg border flex-shrink-0"
+    <div className="flex flex-col h-full overflow-hidden select-none" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+      {/* Gemini Single Top Header */}
+      <header
+        className="flex items-center justify-between px-6 py-3.5 flex-shrink-0 border-b select-none z-20"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
-        {/* Left: Persona Tabs */}
-        <div className="flex items-center gap-1.5 p-1 rounded-md border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                    <button
-            onClick={() => setShowTerminal(true)}
-            aria-pressed={showTerminal}
-            title="Real cmd.exe PTY — run claude / codex / gemini CLI against the project"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs transition-all font-medium ${
-              showTerminal ? 'shadow-sm text-white' : 'hover:opacity-80'
-            }`}
-            style={{
-              background: showTerminal ? '#10b981' : 'transparent',
-              color: showTerminal ? '#fff' : 'var(--muted)',
-            }}
-          >
-            <Terminal size={14} />
-            <span>Terminal</span>
-          </button>
+        {/* Left: Model & Persona Selector Pill */}
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button
+              onClick={() => setShowModelMenu(prev => !prev)}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold text-[#e3e3e3] hover:bg-white/10 transition-colors border"
+              style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+              title="Change model or reasoning effort"
+            >
+              <Sparkles size={14} className="text-blue-400" />
+              <span>{currentModelInfo?.name || selectedModel}</span>
+              <ChevronDown size={13} className="text-[#9aa0a6]" />
+            </button>
 
-          {/* Tools + memory moved into the composer toolbar (Gemini-style). */}
+            {/* Model & Reasoning Popover Dropdown */}
+            {showModelMenu && (
+              <div
+                className="absolute top-full left-0 mt-2 w-72 p-3 rounded-2xl border shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+              >
+                <div className="text-[11px] font-semibold text-[#9aa0a6] uppercase tracking-wider mb-2">
+                  Intelligence Model
+                </div>
+                <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-1">
+                  {models.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        setSelectedModel(m.id)
+                        const info = findModel(models, m.id)
+                        if (info) setReasoningEffort(info.default_reasoning)
+                        setShowModelMenu(false)
+                      }}
+                      className={`text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors ${
+                        selectedModel === m.id
+                          ? 'bg-blue-600/20 text-blue-400 font-semibold border border-blue-500/30'
+                          : 'text-[#e3e3e3] hover:bg-white/5'
+                      }`}
+                    >
+                      <span className="truncate">{m.name}</span>
+                      {m.is_free && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+                          Free
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3 pt-3 border-t flex flex-col gap-1.5" style={{ borderColor: 'var(--border)' }}>
+                  <div className="text-[11px] font-semibold text-[#9aa0a6] uppercase tracking-wider">
+                    Reasoning Effort
+                  </div>
+                  <div className="flex rounded-lg p-0.5 border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
+                    {reasoningTiers.map(tier => (
+                      <button
+                        key={tier}
+                        onClick={() => {
+                          setReasoningEffort(tier)
+                        }}
+                        className={`flex-1 py-1 text-center text-[11px] rounded-md transition-all ${
+                          reasoningEffort === tier
+                            ? 'bg-blue-600 text-white font-medium shadow-sm'
+                            : 'text-[#9aa0a6] hover:text-white'
+                        }`}
+                      >
+                        {tier}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-        {/* Model & reasoning live in the composer bar now (Gemini-style) —
-            the header stays a slim status strip. */}
-
-        {/* Right: Live Connection Badges & Action Buttons */}
-        <div className="flex items-center gap-2">
-          {/* Extension WS Status */}
           <div
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] border"
-            style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
-            title={isExtensionConnected ? 'FlowKit Chrome Extension WebSocket Connected on 9223' : 'Chrome Extension Disconnected'}
+            className="px-2.5 py-1 rounded-full text-[11px] font-medium border"
+            style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--muted)' }}
+          >
+            🎬 {currentPersona.title}
+          </div>
+        </div>
+
+        {/* Right: Status Sparkle + Terminal + New Chat + User Profile */}
+        <div className="flex items-center gap-3">
+          {/* Extension & Flow Connection Indicator */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
+            style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+            title={isExtensionConnected ? 'FlowKit Chrome Extension Connected on 9223' : 'Extension Offline'}
           >
             <span
               className="w-2 h-2 rounded-full"
-              aria-hidden="true"
               style={{ background: isExtensionConnected ? 'var(--green)' : 'var(--red)' }}
             />
             <span style={{ color: isExtensionConnected ? 'var(--green)' : 'var(--muted)' }}>
-              {isExtensionConnected ? 'CDP Extension' : 'No Extension'}
+              {isExtensionConnected ? 'Flow Live' : 'Flow Off'}
             </span>
           </div>
 
-          {/* API Server Status */}
-          <div
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] border"
-            style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
-            title={serverHealth ? 'FlowKit Agent Server Running on :8100' : 'FlowKit Agent Server Offline'}
-          >
-            <span
-              className="w-2 h-2 rounded-full"
-              aria-hidden="true"
-              style={{ background: serverHealth ? 'var(--green)' : 'var(--red)' }}
-            />
-            <span style={{ color: serverHealth ? 'var(--green)' : 'var(--muted)' }}>
-              :8100 API
-            </span>
-          </div>
-
-          {/* Save state for the active thread. Auto-save is debounced, so
-              without this there is no way to tell whether the server actually
-              has the conversation. */}
-          <div
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] border font-mono"
-            style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
-            title={
-              saveError
-                ? `Auto-save failed: ${saveError}. The thread is still in this browser.`
-                : savedAt
-                  ? `Saved to the server at ${new Date(savedAt).toLocaleTimeString()}`
-                  : 'In this browser only — the server copy is written shortly after each reply'
-            }
-          >
-            <span
-              className="w-2 h-2 rounded-full"
-              aria-hidden="true"
-              style={{
-                background: saveError ? 'var(--red)' : savedAt ? 'var(--green)' : 'var(--muted)'
-              }}
-            />
-            <span style={{ color: saveError ? 'var(--red)' : 'var(--muted)' }}>
-              {saveError ? 'Not saved' : savedAt ? 'Saved' : 'Local'}
-            </span>
-          </div>
-
-          {/* New thread. The current one stays saved on the server. */}
+          {/* Terminal Toggle Button */}
           <button
-            onClick={startNewConversation}
-            aria-label="Start a new conversation (the current one stays saved)"
-            className="p-1.5 rounded border transition-colors hover:opacity-80"
-            style={{ borderColor: 'var(--border)', background: 'var(--card)', color: 'var(--muted)' }}
-            title="Start a new conversation (the current one stays saved)"
+            onClick={() => setShowTerminal(prev => !prev)}
+            aria-pressed={showTerminal}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+              showTerminal
+                ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
+                : 'text-[#9aa0a6] hover:text-white border-white/10 hover:bg-white/5'
+            }`}
+            title="Toggle cmd.exe PTY CLI terminal"
           >
-            <Plus size={14} aria-hidden="true" />
+            <Terminal size={13} />
+            <span>Terminal</span>
           </button>
 
+          {/* New Chat Button */}
+          <button
+            onClick={startNewConversation}
+            className="p-1.5 rounded-full border text-[#9aa0a6] hover:text-white hover:bg-white/5 transition-colors"
+            style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
+            title="New conversation"
+          >
+            <Plus size={15} />
+          </button>
+
+          {/* Abinash Profile Avatar */}
+          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 via-indigo-500 to-amber-300 flex items-center justify-center text-xs font-bold text-slate-950 shadow flex-shrink-0">
+            A
+          </div>
         </div>
-      </div>
+      </header>
 
       {showTerminal && (
         <div className="flex-1 min-h-0">
@@ -1439,257 +1462,308 @@ Pick a quick prompt below, or describe the episode you want directed.`,
         </div>
       )}
 
-      {/* Gemini-style empty state: greeting only, composer below does the rest */}
+      {/* Gemini-style empty state: greeting hero + 4 suggestion cards */}
       {isFresh && !showTerminal && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-4">
-          <h1 className="text-4xl md:text-5xl font-normal tracking-tight text-white" style={{ fontFamily: 'var(--font-sans)' }}>
-            Your move, Abinash!
+        <div className="flex-1 flex flex-col items-center justify-center max-w-3xl mx-auto px-4 w-full py-8 text-center animate-in fade-in duration-300 overflow-y-auto">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center text-white mb-4 shadow-lg">
+            <Sparkles size={24} />
+          </div>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-normal tracking-tight">
+            <span className="bg-gradient-to-r from-[#4285f4] via-[#9b72cf] to-[#d96570] bg-clip-text text-transparent font-medium">
+              Hello, Abinash
+            </span>
           </h1>
-          <p className="text-xs font-mono max-w-md" style={{ color: 'var(--muted)' }}>
-            Autonomous Pipeline Agent · Direct episodes, generate Google Flow stills, assemble video, and scrub watermarks.
+          <p className="text-lg sm:text-xl text-[#c4c7c5] font-light mt-3 tracking-wide">
+            How can I help you create your next Short today?
           </p>
+
+          {/* 4 Gemini Quick Action Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-8 w-full text-left">
+            <button
+              onClick={() => {
+                setInput('Direct Episode 2 of Arthur & Rusty: "The Whispering Well". Arthur and Rusty investigate ancient glowing blue symbols pulsing deep inside the dry farm well. Keep all scenes strictly under 10s with high-retention 5-beat pacing.')
+                textareaRef.current?.focus()
+              }}
+              className="p-4 rounded-2xl border transition-all duration-200 group flex flex-col justify-between h-32 hover:-translate-y-0.5 cursor-pointer shadow-sm"
+              style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs font-semibold text-[#e3e3e3] group-hover:text-blue-400 transition-colors">
+                  Direct an Episode
+                </span>
+                <div className="w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-all">
+                  <Clapperboard size={15} />
+                </div>
+              </div>
+              <p className="text-xs text-[#9aa0a6] line-clamp-2 leading-relaxed">
+                Write a 5-phase retention Short with Arthur & Rusty under 10s pacing limit
+              </p>
+            </button>
+
+            <button
+              onClick={() => {
+                setInput('Queue a vertical 9:16 still image in Google Flow: "Arthur holding a glowing brass lantern deep inside the stone well, cinematic volumetric lighting, 8k render".')
+                textareaRef.current?.focus()
+              }}
+              className="p-4 rounded-2xl border transition-all duration-200 group flex flex-col justify-between h-32 hover:-translate-y-0.5 cursor-pointer shadow-sm"
+              style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs font-semibold text-[#e3e3e3] group-hover:text-amber-400 transition-colors">
+                  Generate 9:16 Stills
+                </span>
+                <div className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
+                  <Sparkles size={15} />
+                </div>
+              </div>
+              <p className="text-xs text-[#9aa0a6] line-clamp-2 leading-relaxed">
+                Create character visual assets with S2P prompt consistency conditioning
+              </p>
+            </button>
+
+            <button
+              onClick={() => {
+                setInput('Assemble the latest episode: combine narration audio from Edge TTS, generated visual clips, and timed subtitles into a 9:16 vertical Short.')
+                textareaRef.current?.focus()
+              }}
+              className="p-4 rounded-2xl border transition-all duration-200 group flex flex-col justify-between h-32 hover:-translate-y-0.5 cursor-pointer shadow-sm"
+              style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs font-semibold text-[#e3e3e3] group-hover:text-emerald-400 transition-colors">
+                  Assemble Short
+                </span>
+                <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                  <Zap size={15} />
+                </div>
+              </div>
+              <p className="text-xs text-[#9aa0a6] line-clamp-2 leading-relaxed">
+                Merge narration, keyframe visuals, audio mix, and animated captions
+              </p>
+            </button>
+
+            <button
+              onClick={() => {
+                setInput('Scrub the AI watermark from the latest render using the veo_bottom_right delogo profile.')
+                textareaRef.current?.focus()
+              }}
+              className="p-4 rounded-2xl border transition-all duration-200 group flex flex-col justify-between h-32 hover:-translate-y-0.5 cursor-pointer shadow-sm"
+              style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs font-semibold text-[#e3e3e3] group-hover:text-purple-400 transition-colors">
+                  Scrub Watermark
+                </span>
+                <div className="w-8 h-8 rounded-full bg-purple-500/10 text-purple-400 flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-all">
+                  <Wrench size={15} />
+                </div>
+              </div>
+              <p className="text-xs text-[#9aa0a6] line-clamp-2 leading-relaxed">
+                Detect and remove video watermark logos with precise delogo remuxing
+              </p>
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Main Conversation Feed: role=log announces new messages politely. */}
+      {/* Main Conversation Feed */}
       <div
         role="log"
         aria-live="polite"
         aria-relevant="additions"
         aria-label="Conversation messages"
-        className={`flex-1 overflow-y-auto px-4 py-4 rounded-lg border flex flex-col gap-4${showTerminal || isFresh ? ' hidden' : ''}`}
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        className={`flex-1 overflow-y-auto px-4 sm:px-6 py-6 flex flex-col gap-6 w-full max-w-4xl mx-auto${
+          showTerminal || isFresh ? ' hidden' : ''
+        }`}
       >
         {messages.map((msg, idx) => {
           const isUser = msg.role === 'user'
           const manifest = !isUser ? extractManifest(msg.content) : null
           const isThoughtExpanded = !!expandedThoughts[msg.id || String(idx)]
-          // Narrow the shared dispatch state to this message once, so the
-          // optional-chaining checks below can actually be verified by the
-          // compiler instead of each access being flagged as possibly null.
           const dispatch = dispatchStatus?.id === msg.id ? dispatchStatus : null
 
           return (
             <div
               key={msg.id || idx}
-              className={`flex flex-col gap-1.5 max-w-4xl ${
-                isUser ? 'ml-auto items-end w-full' : 'mr-auto items-start w-full'
-              }`}
+              className={isUser ? 'ml-auto max-w-[80%] flex flex-col items-end gap-1' : 'mr-auto w-full flex items-start gap-3.5 group'}
             >
-              {/* Message Header Pill */}
-              <div className="flex items-center gap-2 text-[10px] px-1 text-muted-foreground font-mono">
-                {isUser ? (
-                  <span>👤 You</span>
-                ) : (
-                  <>
-                    <span className="flex items-center gap-1 font-semibold text-blue-400">
-                      <Bot size={11} /> {msg.modelUsed || 'OpenCode Director'}
-                    </span>
-                    {msg.effortUsed && (
-                      <span className="px-1.5 py-0.2 rounded border border-blue-500/30 text-blue-300 bg-blue-500/10">
-                        {msg.effortUsed} reasoning
-                      </span>
-                    )}
-                    {msg.reasoningTokens ? (
-                      <span className="flex items-center gap-0.5 px-1.5 py-0.2 rounded border border-amber-500/30 text-amber-300 bg-amber-500/10">
-                        <Zap size={9} /> {msg.reasoningTokens.toLocaleString()} thought tokens
-                      </span>
-                    ) : null}
-                    {msg.latencyMs ? (
-                      <span>{(msg.latencyMs / 1000).toFixed(1)}s</span>
-                    ) : null}
-                  </>
-                )}
-                <span>· {new Date(msg.timestamp || Date.now()).toLocaleTimeString()}</span>
-              </div>
+              {isUser ? (
+                <>
+                  <div className="bg-[#282a2c] text-[#e3e3e3] rounded-[24px] px-5 py-3 text-[14px] leading-relaxed shadow-sm font-sans whitespace-pre-wrap break-words border border-white/5">
+                    {msg.content}
+                  </div>
+                  <span className="text-[10px] text-[#9aa0a6] px-2 font-sans">
+                    {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </>
+              ) : (
+                <>
+                  {/* Gemini Sparkle Avatar */}
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center text-white flex-shrink-0 shadow mt-0.5">
+                    <Sparkles size={16} />
+                  </div>
 
-              {/* Message Body Card */}
-              <div
-                className={`p-4 rounded-xl border text-xs leading-relaxed transition-all ${
-                  isUser
-                    ? 'rounded-tr-none'
-                    : 'rounded-tl-none w-full'
-                }`}
-                style={{
-                  background: 'var(--card)',
-                  borderColor: isUser ? 'var(--border)' : 'rgba(59, 130, 246, 0.25)',
-                  color: 'var(--text)'
-                }}
-              >
-                {/* Expandable Reasoning / Thought Trace if available */}
-                {!isUser && (msg.thoughtTrace || msg.reasoningTokens) && (
-                  <div
-                    className="mb-3 rounded-md border text-[11px] overflow-hidden"
-                    style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'var(--surface)' }}
-                  >
-                    <button
-                      onClick={() =>
-                        setExpandedThoughts(prev => ({
-                          ...prev,
-                          [msg.id || String(idx)]: !isThoughtExpanded
-                        }))
-                      }
-                      aria-expanded={isThoughtExpanded}
-                      aria-label={`${isThoughtExpanded ? 'Collapse' : 'Expand'} reasoning trace`}
-                      className="w-full flex items-center justify-between px-3 py-1.5 text-amber-300/90 font-mono transition-colors hover:bg-amber-500/10"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <BrainCircuit size={12} className="text-amber-400" />
-                        <span className="font-semibold">Deep Reasoning Trace</span>
-                        <span className="text-[10px] text-amber-200/60">
-                          ({msg.reasoningTokens?.toLocaleString() || 0} tokens evaluated)
-                        </span>
-                      </span>
-                      {isThoughtExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    </button>
+                  <div className="flex-1 min-w-0 flex flex-col gap-2">
+                    {/* Header Info */}
+                    <div className="flex items-center gap-2 text-xs text-[#9aa0a6] font-sans">
+                      <span className="font-semibold text-white">Gemini</span>
+                      <span>·</span>
+                      <span>{msg.modelUsed || selectedModel}</span>
+                      {msg.latencyMs ? <span>· {(msg.latencyMs / 1000).toFixed(1)}s</span> : null}
+                      <span>· {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
 
-                    {isThoughtExpanded && (
-                      <div className="px-3 py-2 border-t border-amber-500/20 font-mono text-[10.5px] leading-snug whitespace-pre-wrap text-amber-100/80 max-h-48 overflow-y-auto">
-                        {msg.thoughtTrace ||
-                          'The provider returned no reasoning text for this response \u2014 only the token count above.'}
+                    {/* Expandable Reasoning / Thought Trace */}
+                    {(msg.thoughtTrace || msg.reasoningTokens) && (
+                      <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                        <button
+                          onClick={() =>
+                            setExpandedThoughts(prev => ({
+                              ...prev,
+                              [msg.id || String(idx)]: !isThoughtExpanded
+                            }))
+                          }
+                          aria-expanded={isThoughtExpanded}
+                          className="w-full flex items-center justify-between px-3.5 py-1.5 text-xs text-amber-300/90 font-sans hover:bg-white/5 transition-colors"
+                        >
+                          <span className="flex items-center gap-2">
+                            <BrainCircuit size={13} className="text-amber-400" />
+                            <span>Thought for {msg.latencyMs ? (msg.latencyMs / 1000).toFixed(1) : 'a few'} seconds</span>
+                            <span className="text-[11px] text-[#9aa0a6]">
+                              ({msg.reasoningTokens?.toLocaleString() || 0} tokens evaluated)
+                            </span>
+                          </span>
+                          {isThoughtExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                        </button>
+
+                        {isThoughtExpanded && (
+                          <div className="px-4 py-3 border-t text-xs leading-relaxed text-[#c4c7c5] max-h-48 overflow-y-auto whitespace-pre-wrap font-mono" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                            {msg.thoughtTrace || 'The provider evaluated reasoning tokens without streaming raw trace text.'}
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
 
-                {/* Tool activity the server actually ran while producing this
-                    reply. Rendered above the prose because that is the order it
-                    happened in: the assistant acted, then answered. A reply with
-                    no tools renders exactly as it did before. */}
-                {!isUser && msg.tools && msg.tools.length > 0 && (
-                  <div className="mb-2 flex flex-col gap-1.5">
-                    {msg.tools.map((ev, toolIdx) => (
-                      <ToolActivity
-                        key={`${msg.id || idx}-tool-${toolIdx}`}
-                        ev={ev}
-                        copyKey={`${msg.id || idx}-tool-${toolIdx}`}
-                        copiedId={copiedId}
-                        onCopy={handleCopy}
-                        onApprove={loading ? undefined : handleApproveTool}
-                      />
-                    ))}
-                  </div>
-                )}
+                    {/* Tool Activity Chips */}
+                    {msg.tools && msg.tools.length > 0 && (
+                      <div className="flex flex-col gap-1.5 my-1">
+                        {msg.tools.map((ev, toolIdx) => (
+                          <ToolActivity
+                            key={`${msg.id || idx}-tool-${toolIdx}`}
+                            ev={ev}
+                            copyKey={`${msg.id || idx}-tool-${toolIdx}`}
+                            copiedId={copiedId}
+                            onCopy={handleCopy}
+                            onApprove={loading ? undefined : handleApproveTool}
+                          />
+                        ))}
+                      </div>
+                    )}
 
-                {/* Primary content, rendered from the parsed Markdown tree.
-                    Nothing here uses dangerouslySetInnerHTML, so model output
-                    cannot inject markup. */}
-                <Markdown text={msg.content} />
+                    {/* Primary Markdown Content */}
+                    <div className="text-[14px] leading-relaxed text-[#e3e3e3] font-sans">
+                      <Markdown text={msg.content} />
+                    </div>
 
-                {/* Smart Action: If Assistant output contains a JSON manifest, offer 1-click Dispatch to FlowKit */}
-                {manifest && (
-                  <div
-                    className="mt-3 p-3 rounded-lg border flex flex-col gap-2"
-                    style={{ background: 'rgba(34, 197, 94, 0.08)', borderColor: 'rgba(34, 197, 94, 0.3)' }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 font-bold text-green-400 text-xs font-mono">
-                        <Clapperboard size={13} />
-                        Ready-to-Render Episode Manifest Detected ({manifest.scenes?.length || 0} scenes ≤ 10s)
-                      </span>
-                      <Button
-                        size="sm"
-                        disabled={!!dispatch?.loading}
-                        onClick={() => handleDispatchToFlowKit(msg.id!, manifest)}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] h-7 px-3 flex items-center gap-1"
+                    {/* Smart Action: Manifest Dispatch */}
+                    {manifest && (
+                      <div
+                        className="mt-2 p-4 rounded-2xl border flex flex-col gap-2.5"
+                        style={{ background: 'rgba(34, 197, 94, 0.08)', borderColor: 'rgba(34, 197, 94, 0.3)' }}
                       >
-                        {dispatch?.loading ? (
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-2 font-semibold text-emerald-400 text-xs font-sans">
+                            <Clapperboard size={14} />
+                            Ready-to-Render Episode Manifest ({manifest.scenes?.length || 0} scenes ≤ 10s)
+                          </span>
+                          <Button
+                            size="sm"
+                            disabled={!!dispatch?.loading}
+                            onClick={() => handleDispatchToFlowKit(msg.id!, manifest)}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] h-7 px-3.5 rounded-full flex items-center gap-1.5 shadow"
+                          >
+                            {dispatch?.loading ? (
+                              <>
+                                <span className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Dispatching...
+                              </>
+                            ) : (
+                              <>
+                                <Play size={11} /> Dispatch to FlowKit Pipeline
+                              </>
+                            )}
+                          </Button>
+                        </div>
+
+                        {dispatch?.successProject && (
+                          <div role="status" className="flex items-center justify-between text-xs text-emerald-300 font-sans pt-1">
+                            <span>✅ Project Created: <strong>{dispatch.successProject.name}</strong></span>
+                            <Link
+                              to={`/projects/${dispatch.successProject.id}`}
+                              className="flex items-center gap-1 text-emerald-400 underline hover:opacity-80"
+                            >
+                              View in Projects <ArrowUpRight size={12} />
+                            </Link>
+                          </div>
+                        )}
+                        {dispatch?.error && (
+                          <div role="status" className="text-xs text-red-400 font-sans pt-1 flex items-center gap-1">
+                            <AlertCircle size={12} /> {dispatch.error}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Message Actions: Copy, Retry */}
+                    <div className="flex items-center gap-3 mt-1 text-xs text-[#9aa0a6]">
+                      {!isUser && msg.id?.endsWith('-err') && (
+                        <button
+                          onClick={handleRetry}
+                          disabled={loading}
+                          aria-label="Retry failed reply"
+                          className="flex items-center gap-1 hover:text-white transition-colors"
+                        >
+                          <RotateCcw size={11} /> Retry
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleCopy(msg.content, msg.id || String(idx))}
+                        aria-label="Copy message"
+                        className="flex items-center gap-1 hover:text-white transition-colors"
+                      >
+                        {copiedId === (msg.id || String(idx)) ? (
                           <>
-                            <span className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Dispatching...
+                            <Check size={11} className="text-emerald-400" /> Copied
                           </>
                         ) : (
                           <>
-                            <Play size={11} /> Dispatch to FlowKit Pipeline
+                            <Copy size={11} /> Copy
                           </>
                         )}
-                      </Button>
+                      </button>
                     </div>
-
-                    {/* Dispatch Result Feedback */}
-                    {dispatch?.successProject && (
-                      <div role="status" className="flex items-center justify-between text-[11px] text-emerald-300 font-mono pt-1">
-                        <span>
-                          ✅ Project Created: <strong>{dispatch.successProject.name}</strong>
-                        </span>
-                        <Link
-                          to={`/projects/${dispatch.successProject.id}`}
-                          className="flex items-center gap-1 text-emerald-400 underline hover:opacity-80"
-                        >
-                          View in Projects <ArrowUpRight size={11} />
-                        </Link>
-                      </div>
-                    )}
-                    {dispatch?.error && (
-                      <div role="status" className="text-[11px] text-red-400 font-mono pt-1 flex items-center gap-1">
-                        <AlertCircle size={11} /> {dispatch.error}
-                      </div>
-                    )}
                   </div>
-                )}
-
-                {/* Message Actions Bottom Bar */}
-                <div className="flex items-center justify-end gap-2 mt-2 pt-2 border-t border-slate-700/30 text-[10px] text-muted-foreground">
-                  {/* Retry appears only on error cards (id *-err): re-sends the
-                      stored turn verbatim. Stopped cards never offer it — a
-                      Stop was deliberate. */}
-                  {!isUser && msg.id?.endsWith('-err') && (
-                    <button
-                      onClick={handleRetry}
-                      disabled={loading}
-                      aria-label="Retry the failed reply"
-                      title="Re-send the failed turn (same model, same tools)"
-                      className="flex items-center gap-1 hover:text-white transition-colors disabled:opacity-50"
-                    >
-                      <RotateCcw size={11} aria-hidden="true" /> Retry
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleCopy(msg.content, msg.id || String(idx))}
-                    aria-label={`Copy ${isUser ? 'your' : 'assistant'} message to clipboard`}
-                    className="flex items-center gap-1 hover:text-white transition-colors"
-                  >
-                    {copiedId === (msg.id || String(idx)) ? (
-                      <>
-                        <Check size={11} className="text-green-400" aria-hidden="true" /> Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={11} aria-hidden="true" /> Copy Message
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           )
         })}
 
-        {/* The reply being written. Rendered with the same component as a
-            finished one so the layout does not jump when the stream ends.
-            Tool activity alone is enough to show this: the model often calls a
-            tool before it writes any prose, and an empty feed there reads as a
-            hang. */}
+        {/* Live Streaming Reply */}
         {streaming && (streaming.text || streaming.reasoning || streaming.tools.length > 0) && (
-          <div role="status" aria-label="Assistant reply in progress" className="flex flex-col gap-1.5 max-w-4xl mr-auto items-start w-full">
-            <div className="flex items-center gap-2 text-[10px] px-1 text-muted-foreground font-mono">
-              <span className="flex items-center gap-1 font-semibold text-blue-400">
-                <Bot size={11} /> {selectedModel}
-              </span>
-              <span className="px-1.5 py-0.2 rounded border border-blue-500/30 text-blue-300 bg-blue-500/10">
-                writing
-              </span>
+          <div role="status" aria-label="Assistant reply in progress" className="mr-auto w-full flex items-start gap-3.5">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center text-white flex-shrink-0 shadow mt-0.5 animate-pulse">
+              <Sparkles size={16} />
             </div>
-            <div
-              className="p-4 rounded-xl border rounded-tl-none w-full text-xs leading-relaxed"
-              style={{
-                background: 'var(--card)',
-                borderColor: 'rgba(59, 130, 246, 0.25)',
-                color: 'var(--text)',
-              }}
-            >
+            <div className="flex-1 min-w-0 flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-xs text-[#9aa0a6] font-sans">
+                <span className="font-semibold text-white">Gemini</span>
+                <span>·</span>
+                <span className="text-blue-400 font-medium">Generating...</span>
+              </div>
+
               {streaming.tools.length > 0 && (
-                <div className="mb-3 flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5 my-1">
                   {streaming.tools.map((ev, toolIdx) => (
                     <ToolActivity
                       key={`live-tool-${toolIdx}`}
@@ -1701,43 +1775,36 @@ Pick a quick prompt below, or describe the episode you want directed.`,
                   ))}
                 </div>
               )}
+
               {streaming.reasoning && (
                 <div
-                  className="mb-3 rounded-md border px-3 py-2 text-[10.5px] font-mono whitespace-pre-wrap max-h-40 overflow-y-auto"
-                  style={{
-                    borderColor: 'rgba(245, 158, 11, 0.3)',
-                    background: 'var(--surface)',
-                    color: 'var(--text)',
-                  }}
+                  className="rounded-xl border px-3.5 py-2 text-xs font-mono whitespace-pre-wrap max-h-40 overflow-y-auto"
+                  style={{ borderColor: 'rgba(245, 158, 11, 0.3)', background: 'var(--card)', color: 'var(--text)' }}
                 >
                   {streaming.reasoning}
                 </div>
               )}
-              <Markdown text={streaming.text} />
-              <span
-                className="inline-block w-1.5 h-3.5 align-text-bottom ml-0.5 animate-pulse"
-                style={{ background: 'var(--accent)' }}
-              />
+
+              <div className="text-[14px] leading-relaxed text-[#e3e3e3] font-sans">
+                <Markdown text={streaming.text} />
+                <span
+                  className="inline-block w-1.5 h-4 align-text-bottom ml-0.5 animate-pulse"
+                  style={{ background: 'var(--accent)' }}
+                />
+              </div>
             </div>
           </div>
         )}
 
-        {/* Spinner only before the first token, so it does not compete with the
-            streaming text once that has started — and not while tool cards are
-            already on screen, which would say "waiting" over visible progress. */}
+        {/* Thinking Indicator before first token */}
         {loading && !streaming?.text && !(streaming?.tools?.length) && (
-          <div role="status" aria-label="Assistant is thinking" className="flex items-center gap-3 p-3.5 rounded-xl border max-w-sm mr-auto" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
-            <div className="relative flex items-center justify-center">
-              <span className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <Zap size={10} className="absolute text-blue-400" />
+          <div role="status" aria-label="Assistant is thinking" className="mr-auto flex items-center gap-3 py-2 px-1">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center text-white flex-shrink-0 shadow">
+              <Sparkles size={16} className="animate-spin" />
             </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-semibold text-blue-400 flex items-center gap-1 font-mono">
-                {selectedModel.split('-')[0]} Thinking ({reasoningEffort}) ...
-              </span>
-              <span className="text-[10px] text-muted-foreground font-mono">
-                Evaluating scene pacing & S2P consistency
-              </span>
+            <div className="flex items-center gap-2 text-xs text-[#9aa0a6] font-sans">
+              <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
+              <span>Thinking ({selectedModel.split('-')[0]} · {reasoningEffort})...</span>
             </div>
           </div>
         )}
@@ -1745,98 +1812,45 @@ Pick a quick prompt below, or describe the episode you want directed.`,
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Message Input Bar */}
-      <div
-        className={`p-3 rounded-lg border flex flex-col gap-2 flex-shrink-0${showTerminal ? ' hidden' : ''}`}
-        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-      >
-        {/* Tools + memory live in the composer now — one control surface */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <label htmlFor="chat-model-select" className="sr-only">Model</label>
-          <select
-            id="chat-model-select"
-            value={selectedModel}
-            onChange={e => {
-              const nextModel = e.target.value
-              setSelectedModel(nextModel)
-              const info = findModel(models, nextModel)
-              if (info) setReasoningEffort(info.default_reasoning)
-            }}
-            disabled={!catalogueReady}
-            title="Model"
-            className="text-[11px] pl-2 pr-1 py-1 rounded-full border outline-none font-mono max-w-[240px] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-            style={{ background: 'var(--card)', color: 'var(--text)', borderColor: 'var(--border)' }}
-          >
-            {models.map(m => (
-              <option key={m.id} value={m.id}>
-                {m.name} {m.is_free ? '· Free' : ''}
-              </option>
-            ))}
-          </select>
-          <label htmlFor="chat-reasoning-select" className="sr-only">Reasoning effort</label>
-          <select
-            id="chat-reasoning-select"
-            value={reasoningEffort}
-            onChange={e => setReasoningEffort(e.target.value as ReasoningEffort)}
-            disabled={!catalogueReady || reasoningTiers.length === 1}
-            title="Reasoning effort"
-            className="text-[11px] pl-2 pr-1 py-1 rounded-full border outline-none font-mono cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-            style={{ background: 'var(--card)', color: 'var(--text)', borderColor: 'var(--border)' }}
-          >
-            {reasoningTiers.map(effort => (
-              <option key={effort} value={effort}>
-                {effort === 'xhigh' ? '⚡ xhigh' : effort === 'high' ? '🧠 high' : effort}
-              </option>
-            ))}
-          </select>
-          {currentModelInfo && (
-            <span
-              className="text-[10px] px-2 py-0.5 rounded-full font-mono border"
-              style={currentModelInfo.is_free
-                ? { borderColor: 'rgba(52, 211, 153, 0.3)', color: 'var(--green)' }
-                : { borderColor: 'rgba(245, 158, 11, 0.4)', color: 'var(--amber, #f59e0b)' }}
-              title={currentModelInfo.is_free ? undefined : 'Paid models are refused unless this OpenCode account has a payment method.'}
-            >
-              {currentModelInfo.is_free ? 'FREE · $0' : 'PAID'}
-            </span>
-          )}
-        </div>
-
-        {/* Quick Tools Drawer (triggered by + button) */}
+      {/* Floating Gemini Composer Capsule */}
+      <div className={`w-full max-w-4xl mx-auto px-4 pb-4 pt-1 flex-shrink-0 select-none${showTerminal ? ' hidden' : ''}`}>
+        {/* Quick Tools Drawer (opened by +) */}
         {showQuickDrawer && (
           <div
-            className="p-3 rounded-xl border flex flex-col gap-2 mb-1 animate-in fade-in slide-in-from-bottom-2 duration-150"
+            className="p-3.5 rounded-2xl border flex flex-col gap-2.5 mb-2.5 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-150"
             style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold tracking-wider uppercase text-blue-400 flex items-center gap-1.5">
-                <Sparkles size={13} /> Quick Tools & Actions
+              <span className="text-xs font-semibold text-blue-400 flex items-center gap-1.5 font-sans">
+                <Sparkles size={14} /> Quick Pipeline Tools
               </span>
-              <span className="text-[10px]" style={{ color: 'var(--muted)' }}>Click to load into composer</span>
+              <span className="text-[11px] text-[#9aa0a6] font-sans">Click to insert prompt</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setInput('Direct Episode 2 of Arthur & Rusty: "The Whispering Well". Keep scenes strictly under 10s with high-retention 5-beat pacing.')
                   setShowQuickDrawer(false)
+                  textareaRef.current?.focus()
                 }}
-                className="text-left p-2 rounded-lg border text-xs text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors flex items-center gap-2"
+                className="text-left p-2.5 rounded-xl border text-xs text-[#e3e3e3] hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
               >
-                <Clapperboard size={14} className="text-blue-400 flex-shrink-0" />
+                <Clapperboard size={15} className="text-blue-400 flex-shrink-0" />
                 <span className="truncate">Direct Episode 2 (Arthur & Rusty)</span>
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setInput('Queue a vertical 9:16 still image in Google Flow: "Arthur holding a glowing brass lantern deep inside the stone well, cinematic lighting".')
+                  setInput('Queue a vertical 9:16 still image in Google Flow: "Arthur holding a glowing brass lantern deep inside the stone well, cinematic volumetric lighting".')
                   setShowQuickDrawer(false)
+                  textareaRef.current?.focus()
                 }}
-                className="text-left p-2 rounded-lg border text-xs text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors flex items-center gap-2"
+                className="text-left p-2.5 rounded-xl border text-xs text-[#e3e3e3] hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
               >
-                <Sparkles size={14} className="text-amber-400 flex-shrink-0" />
+                <Sparkles size={15} className="text-amber-400 flex-shrink-0" />
                 <span className="truncate">Generate Google Flow Still</span>
               </button>
               <button
@@ -1844,11 +1858,12 @@ Pick a quick prompt below, or describe the episode you want directed.`,
                 onClick={() => {
                   setInput('Check the current request queue status and reference image conditioning for farmer_and_rusty.')
                   setShowQuickDrawer(false)
+                  textareaRef.current?.focus()
                 }}
-                className="text-left p-2 rounded-lg border text-xs text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors flex items-center gap-2"
+                className="text-left p-2.5 rounded-xl border text-xs text-[#e3e3e3] hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
               >
-                <Database size={14} className="text-emerald-400 flex-shrink-0" />
+                <Database size={15} className="text-emerald-400 flex-shrink-0" />
                 <span className="truncate">Check Queue & Conditioning</span>
               </button>
               <button
@@ -1856,38 +1871,29 @@ Pick a quick prompt below, or describe the episode you want directed.`,
                 onClick={() => {
                   setInput('Scrub the AI watermark from storage/output/farmer_and_rusty_ep1.mp4 using the veo_bottom_right delogo profile.')
                   setShowQuickDrawer(false)
+                  textareaRef.current?.focus()
                 }}
-                className="text-left p-2 rounded-lg border text-xs text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors flex items-center gap-2"
+                className="text-left p-2.5 rounded-xl border text-xs text-[#e3e3e3] hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
               >
-                <Wrench size={14} className="text-purple-400 flex-shrink-0" />
+                <Wrench size={15} className="text-purple-400 flex-shrink-0" />
                 <span className="truncate">Scrub Video Watermark</span>
               </button>
             </div>
           </div>
         )}
 
-        <div className="flex items-center gap-2">
-          {/* Quick Tools + Button */}
-          <button
-            type="button"
-            onClick={() => setShowQuickDrawer(prev => !prev)}
-            title={showQuickDrawer ? 'Close tools drawer' : 'Open tools drawer (+)'}
-            aria-label="Add tools"
-            className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all flex-shrink-0 ${
-              showQuickDrawer
-                ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
-                : 'text-slate-400 hover:text-white border-slate-700/80 bg-slate-800/50 hover:bg-slate-800'
-            }`}
-          >
-            <Plus size={16} />
-          </button>
-
+        {/* The Capsule */}
+        <div
+          className="rounded-[28px] border shadow-2xl p-3.5 flex flex-col gap-2 focus-within:border-[#8ab4f8] transition-all duration-200"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          {/* Input Textarea */}
           <textarea
             ref={textareaRef}
             id="chat-composer"
-            aria-label={`Message ${currentPersona.title}`}
-            rows={2}
+            aria-label="Prompt Gemini AutoShorts"
+            rows={1}
             value={input}
             disabled={loading}
             onChange={e => setInput(e.target.value)}
@@ -1897,64 +1903,84 @@ Pick a quick prompt below, or describe the episode you want directed.`,
                 handleSend()
               }
             }}
-            placeholder={`Ask Gemini or direct the pipeline (Press Enter to send)...`}
-            className="flex-1 bg-transparent border-0 outline-none text-xs resize-none placeholder:text-slate-500 font-sans overflow-y-auto"
-            style={{ color: 'var(--text)', maxHeight: '200px' }}
+            placeholder="Ask Gemini or direct the pipeline..."
+            className="w-full bg-transparent border-0 outline-none text-[14px] resize-none placeholder:text-[#9aa0a6] text-[#e3e3e3] font-sans px-2 py-1 max-h-48 leading-relaxed"
           />
 
-          {/* Voice / Mic Button */}
-          <button
-            type="button"
-            onClick={() => {
-              if (!input) {
-                setInput('Audit the scene pacing and character consistency for our current series arc.')
-              }
-            }}
-            title="Voice prompt"
-            aria-label="Voice prompt"
-            className="w-9 h-9 rounded-full border border-slate-700/80 bg-slate-800/40 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition-colors flex-shrink-0"
-          >
-            <Mic size={15} />
-          </button>
+          {/* Capsule Bottom Row */}
+          <div className="flex items-center justify-between gap-2 px-1">
+            {/* Left Controls */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setShowQuickDrawer(prev => !prev)}
+                title={showQuickDrawer ? 'Close tools' : 'Open quick tools (+)'}
+                className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${
+                  showQuickDrawer
+                    ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
+                    : 'text-[#9aa0a6] hover:text-white border-white/10 hover:bg-white/5'
+                }`}
+              >
+                <Plus size={16} />
+              </button>
 
-          {/* While a reply is running the primary action becomes Stop. An agent
-              turn can run several tool rounds, so without this the only way out
-              of a slow or looping reply was reloading the page. */}
-          {loading ? (
-            <Button
-              onClick={handleStop}
-              aria-label="Stop generating reply"
-              className="h-9 px-4 rounded-full flex items-center gap-1.5 font-medium transition-all"
-              style={{ background: 'var(--red, #ef4444)', color: '#fff' }}
-              title="Stop this reply (partial text is kept)"
-            >
-              <span>Stop</span>
-              <Square size={11} aria-hidden="true" />
-            </Button>
-          ) : (
-            <Button
-              onClick={() => handleSend()}
-              disabled={!input.trim()}
-              aria-label="Send message"
-              className="h-9 px-4 rounded-full flex items-center gap-1.5 font-medium transition-all shadow-sm"
-              style={{ background: 'var(--accent)', color: '#fff' }}
-            >
-              <span>Send</span>
-              <Send size={12} aria-hidden="true" />
-            </Button>
-          )}
+              <button
+                type="button"
+                onClick={() => setShowModelMenu(prev => !prev)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs text-[#9aa0a6] hover:text-white hover:bg-white/5 border border-white/10 transition-colors"
+                title="Change model / reasoning"
+              >
+                <span>{selectedModel.split('-')[0]}</span>
+                <span className="text-[10px] text-blue-400">({reasoningEffort})</span>
+                <ChevronDown size={11} />
+              </button>
+            </div>
+
+            {/* Right Controls: Mic + Send / Stop */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!input) setInput('Direct Episode 2 of Arthur & Rusty with 5-scene retention pacing.')
+                  textareaRef.current?.focus()
+                }}
+                className="w-8 h-8 rounded-full border border-white/10 hover:bg-white/5 text-[#9aa0a6] hover:text-white flex items-center justify-center transition-colors"
+                title="Voice prompt"
+              >
+                <Mic size={15} />
+              </button>
+
+              {loading ? (
+                <button
+                  type="button"
+                  onClick={handleStop}
+                  className="w-8 h-8 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow transition-all"
+                  title="Stop generating reply"
+                >
+                  <Square size={12} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleSend()}
+                  disabled={!input.trim()}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all shadow ${
+                    input.trim()
+                      ? 'bg-[#8ab4f8] text-[#001d35] hover:bg-[#a8c7fa] cursor-pointer'
+                      : 'bg-white/10 text-white/30 cursor-not-allowed'
+                  }`}
+                  title="Send message"
+                >
+                  <Send size={13} className={input.trim() ? 'translate-x-0.5' : ''} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Bottom Hint */}
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
-          <span className="flex items-center gap-2">
-            <span>Active: <strong>{currentPersona.title}</strong></span>
-            <span>·</span>
-            <span>22 tools · {agentMode ? 'agent on' : 'plain chat'}</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <ShieldCheck size={11} className="text-emerald-400" /> S2P Decoupling Active · ≤10s Limit
-          </span>
+        {/* Gemini Disclaimer */}
+        <div className="text-center text-[11px] text-[#9aa0a6] mt-2 font-sans">
+          Gemini AutoShorts may display inaccurate info. Verify pipeline manifests before dispatching.
         </div>
       </div>
     </div>

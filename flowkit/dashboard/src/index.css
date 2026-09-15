@@ -11,57 +11,58 @@
 }
 
 :root {
-  --bg: #0d0d1a;
-  --surface: #13132a;
-  --card: #1a1a35;
-  --border: #252545;
-  --accent: #3b82f6;
-  --accent-dim: #1d4ed8;
-  --green: #22c55e;
-  --red: #ef4444;
-  --yellow: #f59e0b;
-  --text: #e2e8f0;
-  /* Muted bumped #64748b -> #94a3b8: the old value fails contrast for
-     the <11px mono labels this studio uses everywhere. #94a3b8 passes
-     ~4.6:1 on the dark surface. Light theme overrides below. */
-  --muted: #94a3b8;
-  --background: #0d0d1a;
-  --foreground: #e2e8f0;
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --bg: #131314;
+  --surface: #1e1f20;
+  --card: #1e1f20;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --accent: #8ab4f8;
+  --accent-dim: #1a73e8;
+  --green: #81c995;
+  --red: #f28b82;
+  --yellow: #fdd663;
+  --text: #e3e3e3;
+  --muted: #c4c7c5;
+  --background: #131314;
+  --foreground: #e3e3e3;
+  --card-foreground: #e3e3e3;
+  --popover: #1e1f20;
+  --popover-foreground: #e3e3e3;
+  --primary: #8ab4f8;
+  --primary-foreground: #001d35;
+  --secondary: #282a2c;
+  --secondary-foreground: #e3e3e3;
+  --muted-foreground: #9aa0a6;
+  --accent-foreground: #001d35;
+  --destructive: #f28b82;
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #8ab4f8;
+  --chart-1: #8ab4f8;
+  --chart-2: #c3ecf6;
+  --chart-3: #fdd663;
+  --chart-4: #81c995;
+  --chart-5: #f28b82;
+  --radius: 0.75rem;
+  --sidebar: #1e1f20;
+  --sidebar-foreground: #e3e3e3;
+  --sidebar-primary: #8ab4f8;
+  --sidebar-primary-foreground: #001d35;
+  --sidebar-accent: #282a2c;
+  --sidebar-accent-foreground: #e3e3e3;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #8ab4f8;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'DM Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
-  font-size: 13px;
+  font-family: 'Geist Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Scrollbar */
@@ -113,39 +114,37 @@ body {
 }
 
 .dark {
-  --background: #0d0d1a;
-  --foreground: #e2e8f0;
-  --card: #1a1a35;
-  --card-foreground: #e2e8f0;
-  --popover: #1a1a35;
-  --popover-foreground: #e2e8f0;
-  --primary: #3b82f6;
-  --primary-foreground: #e2e8f0;
-  --secondary: #13132a;
-  --secondary-foreground: #e2e8f0;
-  /* Same muted bump as :root — .dark is kept for compat while the default
-     lives on :root. Do not reintroduce #64748b here. */
-  --muted: #94a3b8;
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: #3b82f6;
-  --accent-foreground: #e2e8f0;
-  --destructive: #ef4444;
-  --border: #252545;
-  --input: #252545;
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #131314;
+  --foreground: #e3e3e3;
+  --card: #1e1f20;
+  --card-foreground: #e3e3e3;
+  --popover: #1e1f20;
+  --popover-foreground: #e3e3e3;
+  --primary: #8ab4f8;
+  --primary-foreground: #001d35;
+  --secondary: #282a2c;
+  --secondary-foreground: #e3e3e3;
+  --muted: #c4c7c5;
+  --muted-foreground: #9aa0a6;
+  --accent: #8ab4f8;
+  --accent-foreground: #001d35;
+  --destructive: #f28b82;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #8ab4f8;
+  --chart-1: #8ab4f8;
+  --chart-2: #c3ecf6;
+  --chart-3: #fdd663;
+  --chart-4: #81c995;
+  --chart-5: #f28b82;
+  --sidebar: #1e1f20;
+  --sidebar-foreground: #e3e3e3;
+  --sidebar-primary: #8ab4f8;
+  --sidebar-primary-foreground: #001d35;
+  --sidebar-accent: #282a2c;
+  --sidebar-accent-foreground: #e3e3e3;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #8ab4f8;
 }
 
 @layer base {
@@ -160,35 +159,41 @@ body {
   }
 }
 
-/* Light theme (opt-in via Header toggle; dark stays the default).
-   :root is dark, so this block only applies when `light` is set on
-   <html> by the pre-hydration script / theme toggle. No visual change
-   until the user toggles. Per docs/CHAT_UI_REVIEW.md §4. */
+/* Light theme (opt-in via Header toggle; dark stays the default). */
 :root.light {
-  --bg: #f8fafc;
+  --bg: #f8fafd;
   --surface: #ffffff;
-  --card: #f1f5f9;
-  --border: #e2e8f0;
-  --accent: #2563eb;
-  --accent-dim: #1d4ed8;
-  --green: #16a34a;
-  --red: #dc2626;
-  --yellow: #b45309;
-  --text: #0f172a;
-  --muted: #475569;
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card-foreground: #0f172a;
+  --card: #ffffff;
+  --border: #e3e3e3;
+  --border-subtle: #f1f3f4;
+  --accent: #1a73e8;
+  --accent-dim: #1557b0;
+  --green: #1e8e3e;
+  --red: #d93025;
+  --yellow: #f9ab00;
+  --text: #1f1f1f;
+  --muted: #444746;
+  --background: #f8fafd;
+  --foreground: #1f1f1f;
+  --card-foreground: #1f1f1f;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #2563eb;
+  --popover-foreground: #1f1f1f;
+  --primary: #1a73e8;
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted-foreground: #475569;
+  --secondary: #f0f4f9;
+  --secondary-foreground: #1f1f1f;
+  --muted-foreground: #5f6368;
   --accent-foreground: #ffffff;
-  --destructive: #dc2626;
-  --input: #e2e8f0;
+  --destructive: #d93025;
+  --input: #e3e3e3;
+  --sidebar: #f0f4f9;
+  --sidebar-foreground: #1f1f1f;
+  --sidebar-primary: #1a73e8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e1e8f5;
+  --sidebar-accent-foreground: #1f1f1f;
+  --sidebar-border: #e3e3e3;
+  --sidebar-ring: #1a73e8;
 }
 
 /* Visible keyboard focus everywhere in the studio. Mouse users are

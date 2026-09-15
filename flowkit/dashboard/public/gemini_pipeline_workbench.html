@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gemini AutoShorts Component Manager</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+</head>
+<body class="bg-transparent text-[var(--foreground)] antialiased p-4 font-sans select-none">
+  <div class="max-w-3xl mx-auto bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-xl overflow-hidden">
+    
+    <!-- Top Bar: Gemini Header -->
+    <div class="px-5 py-3.5 border-b border-[var(--border)] flex items-center justify-between bg-white/[0.02]">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-sm tracking-tight text-white">Gemini AutoShorts</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-mono">Unified Tools</span>
+          </div>
+          <div class="text-[11px] text-[var(--muted-foreground)]">Manage individual pipeline components with AI simplicity</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border border-emerald-500/30 text-emerald-400 bg-emerald-500/10">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          22 Tools Active
+        </span>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs for Pipeline Stages -->
+    <div class="flex border-b border-[var(--border)] overflow-x-auto text-xs px-2 py-1 gap-1 bg-white/[0.01]">
+      <button onclick="setTab('script')" id="tab-script" class="tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-white bg-blue-600 shadow-sm flex items-center gap-1.5">
+        <span>🎬</span> Script & Retention
+      </button>
+      <button onclick="setTab('visuals')" id="tab-visuals" class="tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-[var(--muted-foreground)] hover:text-white flex items-center gap-1.5">
+        <span>🎨</span> 9:16 Stills
+      </button>
+      <button onclick="setTab('audio')" id="tab-audio" class="tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-[var(--muted-foreground)] hover:text-white flex items-center gap-1.5">
+        <span>🎙️</span> Edge TTS
+      </button>
+      <button onclick="setTab('assembly')" id="tab-assembly" class="tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-[var(--muted-foreground)] hover:text-white flex items-center gap-1.5">
+        <span>⚡</span> Assembly & Video
+      </button>
+      <button onclick="setTab('watermark')" id="tab-watermark" class="tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-[var(--muted-foreground)] hover:text-white flex items-center gap-1.5">
+        <span>🧹</span> Watermark Scrub
+      </button>
+      <button onclick="setTab('ledger')" id="tab-ledger" class="tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-[var(--muted-foreground)] hover:text-white flex items-center gap-1.5">
+        <span>📖</span> Continuity Ledger
+      </button>
+    </div>
+
+    <!-- Tab Panels Container -->
+    <div class="p-5">
+      
+      <!-- TAB 1: SCRIPT & RETENTION -->
+      <div id="panel-script" class="tab-panel flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-semibold text-sm text-white">5-Phase Retention Script Generator</h3>
+            <p class="text-xs text-[var(--muted-foreground)]">Enforces strict ≤10s per scene duration & S2P decoupled visual prompts</p>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">Google Flow Pacing</span>
+        </div>
+
+        <div class="grid grid-cols-5 gap-2 text-center text-xs">
+          <div class="p-2.5 rounded-xl border border-[var(--border)] bg-white/[0.02]">
+            <span class="text-[10px] text-blue-400 font-mono block">0-3s</span>
+            <span class="font-semibold text-white">HOOK</span>
+            <span class="text-[10px] text-[var(--muted-foreground)] block mt-1">Instant shock</span>
+          </div>
+          <div class="p-2.5 rounded-xl border border-[var(--border)] bg-white/[0.02]">
+            <span class="text-[10px] text-indigo-400 font-mono block">3-11s</span>
+            <span class="font-semibold text-white">TENSION</span>
+            <span class="text-[10px] text-[var(--muted-foreground)] block mt-1">Escalation</span>
+          </div>
+          <div class="p-2.5 rounded-xl border border-[var(--border)] bg-white/[0.02]">
+            <span class="text-[10px] text-purple-400 font-mono block">11-22s</span>
+            <span class="font-semibold text-white">BARRIER</span>
+            <span class="text-[10px] text-[var(--muted-foreground)] block mt-1">Hazard emerges</span>
+          </div>
+          <div class="p-2.5 rounded-xl border border-[var(--border)] bg-white/[0.02]">
+            <span class="text-[10px] text-amber-400 font-mono block">22-38s</span>
+            <span class="font-semibold text-white">TWIST</span>
+            <span class="text-[10px] text-[var(--muted-foreground)] block mt-1">Dramatic turn</span>
+          </div>
+          <div class="p-2.5 rounded-xl border border-[var(--border)] bg-white/[0.02]">
+            <span class="text-[10px] text-emerald-400 font-mono block">38-48s</span>
+            <span class="font-semibold text-white">LOOP</span>
+            <span class="text-[10px] text-[var(--muted-foreground)] block mt-1">Cliffhanger</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="text" id="script-input" value="Arthur & Rusty discover pulsing blue glyphs inside the dry well" class="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-400 font-sans" />
+          <button onclick="runSimulate('script')" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow transition-all flex items-center gap-1.5">
+            <span>Direct Script</span>
+          </button>
+        </div>
+
+        <div id="result-script" class="p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-xs font-mono text-[var(--muted-foreground)] hidden">
+          <span class="text-emerald-400 font-semibold">✓ Script Directed & Validated:</span> 5 scenes generated, max scene duration 6.2s, 0 character biometric leaks in visual prompts.
+        </div>
+      </div>
+
+      <!-- TAB 2: 9:16 STILLS -->
+      <div id="panel-visuals" class="tab-panel flex flex-col gap-4 hidden">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-semibold text-sm text-white">Google Flow Visual Stills Generator</h3>
+            <p class="text-xs text-[var(--muted-foreground)]">Queues vertical 9:16 character keyframes with reference consistency</p>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">9:16 Aspect</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div class="p-3 rounded-xl border border-[var(--border)] bg-white/[0.02] flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-lg">🌾</div>
+            <div>
+              <span class="font-semibold text-white block">Arthur (Farmer)</span>
+              <span class="text-[10px] text-[var(--muted-foreground)]">Reference ID: ref_farmer_v1</span>
+            </div>
+          </div>
+          <div class="p-3 rounded-xl border border-[var(--border)] bg-white/[0.02] flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-lg">🐕</div>
+            <div>
+              <span class="font-semibold text-white block">Rusty (Retriever)</span>
+              <span class="text-[10px] text-[var(--muted-foreground)]">Reference ID: ref_rusty_v1</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="text" id="visuals-input" value="Arthur holding a glowing brass lantern deep inside the stone well, cinematic 9:16" class="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-400 font-sans" />
+          <button onclick="runSimulate('visuals')" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow transition-all">
+            Generate Still
+          </button>
+        </div>
+
+        <div id="result-visuals" class="p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-xs font-mono text-[var(--muted-foreground)] hidden">
+          <span class="text-amber-400 font-semibold">✓ Generated Keyframe:</span> output/stills/arthur_lantern_well.png (1080x1920) conditioned with ref_farmer_v1.
+        </div>
+      </div>
+
+      <!-- TAB 3: EDGE TTS -->
+      <div id="panel-audio" class="tab-panel flex flex-col gap-4 hidden">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-semibold text-sm text-white">Edge TTS Narration Engine</h3>
+            <p class="text-xs text-[var(--muted-foreground)]">Free high-fidelity neural voices calibrated to 140–160 WPM shorts pacing</p>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Zero Cost</span>
+        </div>
+
+        <div class="flex items-center gap-3 text-xs">
+          <select class="bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+            <option>en-US-ChristopherNeural (Gravelly Male)</option>
+            <option>en-US-GuyNeural (Story Narrator)</option>
+            <option>en-GB-RyanNeural (Atmospheric English)</option>
+          </select>
+          <span class="text-xs text-[var(--muted-foreground)]">Rate: <strong>+5%</strong> · Pitch: <strong>-2Hz</strong></span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="text" id="audio-input" value="Arthur stared into the dry stone well. The symbols had begun to whisper." class="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-400 font-sans" />
+          <button onclick="runSimulate('audio')" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow transition-all">
+            Synthesize Audio
+          </button>
+        </div>
+
+        <div id="result-audio" class="p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-xs font-mono text-[var(--muted-foreground)] hidden">
+          <span class="text-emerald-400 font-semibold">✓ Narration Rendered:</span> storage/output/scene1_narration.mp3 (Duration: 5.4s, 152 WPM).
+        </div>
+      </div>
+
+      <!-- TAB 4: ASSEMBLY & VIDEO -->
+      <div id="panel-assembly" class="tab-panel flex flex-col gap-4 hidden">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-semibold text-sm text-white">Shorts Video Assembly Engine</h3>
+            <p class="text-xs text-[var(--muted-foreground)]">Merges video clips, voiceover, background soundscape, and animated subtitles</p>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">FFmpeg Remux</span>
+        </div>
+
+        <div class="flex items-center justify-between p-3 rounded-xl border border-[var(--border)] bg-white/[0.02] text-xs">
+          <div>
+            <span class="font-semibold text-white block">Arthur & Rusty: Ep 2 (The Whispering Well)</span>
+            <span class="text-[10px] text-[var(--muted-foreground)]">5 scenes · Total Duration: 34.2s · Target: 1080x1920 (9:16)</span>
+          </div>
+          <button onclick="runSimulate('assembly')" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow transition-all">
+            Start Assembly
+          </button>
+        </div>
+
+        <div id="result-assembly" class="p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-xs font-mono text-[var(--muted-foreground)] hidden">
+          <span class="text-purple-400 font-semibold">✓ Render Finished:</span> storage/output/arthur_ep2_final.mp4 (1080x1920 @ 30fps, 48.2MB).
+        </div>
+      </div>
+
+      <!-- TAB 5: WATERMARK SCRUB -->
+      <div id="panel-watermark" class="tab-panel flex flex-col gap-4 hidden">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-semibold text-sm text-white">Veo AI Delogo Watermark Remover</h3>
+            <p class="text-xs text-[var(--muted-foreground)]">Interpolates watermark bounding box pixels to produce clean broadcast deliverables</p>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">Delogo Profile</span>
+        </div>
+
+        <div class="flex items-center gap-3 text-xs">
+          <span class="text-[var(--muted-foreground)]">Profile:</span>
+          <span class="px-2 py-1 rounded bg-white/5 border border-[var(--border)] text-white font-mono">veo_bottom_right (x: 880, y: 1720, w: 160, h: 140)</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="text" id="watermark-input" value="storage/output/arthur_ep2_final.mp4" class="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-400 font-sans" />
+          <button onclick="runSimulate('watermark')" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow transition-all">
+            Scrub Watermark
+          </button>
+        </div>
+
+        <div id="result-watermark" class="p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-xs font-mono text-[var(--muted-foreground)] hidden">
+          <span class="text-red-400 font-semibold">✓ Clean Deliverable Created:</span> storage/output/arthur_ep2_final_clean.mp4 (0 visible watermark artifacts).
+        </div>
+      </div>
+
+      <!-- TAB 6: CONTINUITY LEDGER -->
+      <div id="panel-ledger" class="tab-panel flex flex-col gap-4 hidden">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="font-semibold text-sm text-white">Continuity Ledger (SQLite WAL)</h3>
+            <p class="text-xs text-[var(--muted-foreground)]">Audit character states, relationship graphs, and open episodic plot threads</p>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">continuity_ledger.db</span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2.5 text-xs">
+          <div class="p-3 rounded-xl border border-[var(--border)] bg-white/[0.02]">
+            <span class="text-[10px] text-blue-400 font-mono block">Characters</span>
+            <span class="text-lg font-bold text-white">2</span>
+            <span class="text-[10px] text-[var(--muted-foreground)] block">Arthur, Rusty</span>
+          </div>
+          <div class="p-3 rounded-xl border border-[var(--border)] bg-white/[0.02]">
+            <span class="text-[10px] text-amber-400 font-mono block">Episodes</span>
+            <span class="text-lg font-bold text-white">2</span>
+            <span class="text-[10px] text-[var(--muted-foreground)] block">Ep 1 (Done), Ep 2 (Active)</span>
+          </div>
+          <div class="p-3 rounded-xl border border-[var(--border)] bg-white/[0.02]">
+            <span class="text-[10px] text-emerald-400 font-mono block">Unresolved Threads</span>
+            <span class="text-lg font-bold text-white">3</span>
+            <span class="text-[10px] text-[var(--muted-foreground)] block">Well glyphs, seismic tremor</span>
+          </div>
+        </div>
+
+        <button onclick="runSimulate('ledger')" class="w-full py-2 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 text-xs font-semibold hover:bg-blue-600 hover:text-white transition-all">
+          Audit Ledger Consistency
+        </button>
+
+        <div id="result-ledger" class="p-3 rounded-xl border border-[var(--border)] bg-[var(--background)] text-xs font-mono text-[var(--muted-foreground)] hidden">
+          <span class="text-emerald-400 font-semibold">✓ Ledger Healthy:</span> 0 continuity contradictions detected across 2 episodes.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer Status -->
+    <div class="px-5 py-3 border-t border-[var(--border)] flex items-center justify-between text-[11px] text-[var(--muted-foreground)] bg-white/[0.01]">
+      <span class="flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+        Mode: Dual Agent & Manual Workbench
+      </span>
+      <span>Host: http://127.0.0.1:8100 · Vite: :5173</span>
+    </div>
+
+  </div>
+
+  <script>
+    function setTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.className = 'tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-[var(--muted-foreground)] hover:text-white flex items-center gap-1.5';
+      });
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+
+      const activeBtn = document.getElementById('tab-' + name);
+      if (activeBtn) {
+        activeBtn.className = 'tab-btn px-3 py-1.5 rounded-lg font-medium transition-all text-white bg-blue-600 shadow-sm flex items-center gap-1.5';
+      }
+      const activePanel = document.getElementById('panel-' + name);
+      if (activePanel) {
+        activePanel.classList.remove('hidden');
+      }
+    }
+
+    function runSimulate(type) {
+      const res = document.getElementById('result-' + type);
+      if (res) {
+        res.classList.remove('hidden');
+        res.classList.add('animate-pulse');
+        setTimeout(() => res.classList.remove('animate-pulse'), 800);
+      }
+    }
+  </script>
+</body>
+</html>

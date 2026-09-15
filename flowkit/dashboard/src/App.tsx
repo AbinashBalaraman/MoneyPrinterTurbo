@@ -115,7 +115,7 @@ function Sidebar() {
   const isAgent = loc.pathname === '/' || loc.pathname.startsWith('/agent-studio')
 
   return (
-    <aside className={`${collapsed ? 'w-14' : 'w-60'} flex-shrink-0 flex flex-col border-r transition-all duration-200 select-none`} style={{ background: '#0e0e16', borderColor: 'var(--border)' }}>
+    <aside className={`${collapsed ? 'w-14' : 'w-60'} flex-shrink-0 flex flex-col border-r transition-all duration-200 select-none`} style={{ background: 'var(--sidebar)', borderColor: 'var(--border)' }}>
       {/* Brand & Collapse Header */}
       <div className={`px-4 py-3.5 flex items-center justify-between border-b${collapsed ? ' justify-center px-0' : ''}`} style={{ borderColor: 'var(--border)' }}>
         <NavLink to="/agent-studio" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
@@ -254,7 +254,7 @@ function Sidebar() {
       </nav>
 
       {/* Bottom Profile Footer: Abinash Pro + Settings */}
-      <div className="mt-auto p-3 border-t flex flex-col gap-2.5" style={{ borderColor: 'var(--border)', background: '#0a0a10' }}>
+      <div className="mt-auto p-3 border-t flex flex-col gap-2.5" style={{ borderColor: 'var(--border)', background: 'var(--sidebar)' }}>
         {collapsed ? (
           <div className="flex flex-col items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-amber-400 flex items-center justify-center text-xs font-bold text-slate-900 shadow">
@@ -314,10 +314,7 @@ function getInitialTheme(): Theme {
     const stored = localStorage.getItem(THEME_KEY)
     if (stored === 'light' || stored === 'dark') return stored
   } catch {
-    // ignore (private mode) — fall through to media query
-  }
-  if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches) {
-    return 'light'
+    // ignore (private mode)
   }
   return 'dark'
 }
@@ -359,6 +356,13 @@ function Header() {
   const { isConnected } = useWebSocketContext()
   const crumbs = useBreadcrumbs()
   const clock = useClock()
+  const loc = useLocation()
+  const isAgentChat = loc.pathname === '/' || loc.pathname.startsWith('/agent-studio')
+
+  if (isAgentChat) {
+    // AgentChatPage provides its own unified Gemini header
+    return null
+  }
 
   return (
     <header className="flex items-center gap-4 px-5 h-13 flex-shrink-0 border-b" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
@@ -389,12 +393,15 @@ function Header() {
 }
 
 function Layout() {
+  const loc = useLocation()
+  const isAgentChat = loc.pathname === '/' || loc.pathname.startsWith('/agent-studio')
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-auto p-5">
+        <main className={`flex-1 overflow-auto ${isAgentChat ? 'p-0 flex flex-col' : 'p-5'}`}>
           <Routes>
             <Route path="/" element={<AgentChatPage />} />
             <Route path="/agent-studio" element={<AgentChatPage />} />

@@ -14,9 +14,7 @@
       (function () {
         try {
           var stored = localStorage.getItem('flowkit-theme');
-          var theme = stored === 'light' || stored === 'dark'
-            ? stored
-            : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+          var theme = stored === 'light' ? 'light' : 'dark';
           if (theme === 'light') document.documentElement.classList.add('light');
           else document.documentElement.classList.add('dark');
         } catch (e) {
