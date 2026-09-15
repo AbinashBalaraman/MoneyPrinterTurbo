@@ -551,7 +551,7 @@ function ToolActivity({ ev, copyKey, copiedId, onCopy, onApprove }: ToolActivity
 }
 
 export default function AgentChatPage() {
-  const { isConnected: isExtensionConnected } = useWebSocketContext()
+  const { isConnected } = useWebSocketContext()
 
   // State
   const [activePersona, setActivePersona] = useState<PersonaType>('director')
@@ -1324,105 +1324,11 @@ export default function AgentChatPage() {
         className="flex items-center justify-between px-6 py-3.5 flex-shrink-0 border-b select-none z-20"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
-        {/* Left: Model & Persona Selector Pill */}
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <button
-              onClick={() => setShowModelMenu(prev => !prev)}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold text-[#e3e3e3] hover:bg-white/10 transition-colors border"
-              style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
-              title="Change model or reasoning effort"
-            >
-              <Sparkles size={14} className="text-blue-400" />
-              <span>{currentModelInfo?.name || selectedModel}</span>
-              <ChevronDown size={13} className="text-[#9aa0a6]" />
-            </button>
+        {/* Left: Clean space matching Gemini top bar */}
+        <div className="flex items-center gap-2" />
 
-            {/* Model & Reasoning Popover Dropdown */}
-            {showModelMenu && (
-              <div
-                className="absolute top-full left-0 mt-2 w-72 p-3 rounded-2xl border shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150"
-                style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
-              >
-                <div className="text-[11px] font-semibold text-[#9aa0a6] uppercase tracking-wider mb-2">
-                  Intelligence Model
-                </div>
-                <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-1">
-                  {models.map(m => (
-                    <button
-                      key={m.id}
-                      onClick={() => {
-                        setSelectedModel(m.id)
-                        const info = findModel(models, m.id)
-                        if (info) setReasoningEffort(info.default_reasoning)
-                        setShowModelMenu(false)
-                      }}
-                      className={`text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors ${
-                        selectedModel === m.id
-                          ? 'bg-blue-600/20 text-blue-400 font-semibold border border-blue-500/30'
-                          : 'text-[#e3e3e3] hover:bg-white/5'
-                      }`}
-                    >
-                      <span className="truncate">{m.name}</span>
-                      {m.is_free && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
-                          Free
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="mt-3 pt-3 border-t flex flex-col gap-1.5" style={{ borderColor: 'var(--border)' }}>
-                  <div className="text-[11px] font-semibold text-[#9aa0a6] uppercase tracking-wider">
-                    Reasoning Effort
-                  </div>
-                  <div className="flex rounded-lg p-0.5 border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
-                    {reasoningTiers.map(tier => (
-                      <button
-                        key={tier}
-                        onClick={() => {
-                          setReasoningEffort(tier)
-                        }}
-                        className={`flex-1 py-1 text-center text-[11px] rounded-md transition-all ${
-                          reasoningEffort === tier
-                            ? 'bg-blue-600 text-white font-medium shadow-sm'
-                            : 'text-[#9aa0a6] hover:text-white'
-                        }`}
-                      >
-                        {tier}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div
-            className="px-2.5 py-1 rounded-full text-[11px] font-medium border"
-            style={{ background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--muted)' }}
-          >
-            🎬 {currentPersona.title}
-          </div>
-        </div>
-
-        {/* Right: Status Sparkle + Terminal + New Chat + User Profile */}
+        {/* Right: Terminal + New Chat + User Profile */}
         <div className="flex items-center gap-3">
-          {/* Extension & Flow Connection Indicator */}
-          <div
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border"
-            style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
-            title={isExtensionConnected ? 'FlowKit Chrome Extension Connected on 9223' : 'Extension Offline'}
-          >
-            <span
-              className="w-2 h-2 rounded-full"
-              style={{ background: isExtensionConnected ? 'var(--green)' : 'var(--red)' }}
-            />
-            <span style={{ color: isExtensionConnected ? 'var(--green)' : 'var(--muted)' }}>
-              {isExtensionConnected ? 'Flow Live' : 'Flow Off'}
-            </span>
-          </div>
 
           {/* Terminal Toggle Button */}
           <button
@@ -1924,16 +1830,77 @@ export default function AgentChatPage() {
                 <Plus size={16} />
               </button>
 
-              <button
-                type="button"
-                onClick={() => setShowModelMenu(prev => !prev)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs text-[#9aa0a6] hover:text-white hover:bg-white/5 border border-white/10 transition-colors"
-                title="Change model / reasoning"
-              >
-                <span>{selectedModel.split('-')[0]}</span>
-                <span className="text-[10px] text-blue-400">({reasoningEffort})</span>
-                <ChevronDown size={11} />
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowModelMenu(prev => !prev)}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs text-[#9aa0a6] hover:text-white hover:bg-white/5 border border-white/10 transition-colors"
+                  title="Change model / reasoning"
+                >
+                  <span>{selectedModel.split('-')[0]}</span>
+                  <span className="text-[10px] text-blue-400">({reasoningEffort})</span>
+                  <ChevronDown size={11} />
+                </button>
+
+                {showModelMenu && (
+                  <div
+                    className="absolute bottom-full left-0 mb-2 w-72 p-3 rounded-2xl border shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                    style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
+                  >
+                    <div className="text-[11px] font-semibold text-[#9aa0a6] uppercase tracking-wider mb-2">
+                      Intelligence Model
+                    </div>
+                    <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-1">
+                      {models.map(m => (
+                        <button
+                          key={m.id}
+                          onClick={() => {
+                            setSelectedModel(m.id)
+                            const info = findModel(models, m.id)
+                            if (info) setReasoningEffort(info.default_reasoning)
+                            setShowModelMenu(false)
+                          }}
+                          className={`text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors ${
+                            selectedModel === m.id
+                              ? 'bg-blue-600/20 text-blue-400 font-semibold border border-blue-500/30'
+                              : 'text-[#e3e3e3] hover:bg-white/5'
+                          }`}
+                        >
+                          <span className="truncate">{m.name}</span>
+                          {m.is_free && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+                              Free
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 pt-3 border-t flex flex-col gap-1.5" style={{ borderColor: 'var(--border)' }}>
+                      <div className="text-[11px] font-semibold text-[#9aa0a6] uppercase tracking-wider">
+                        Reasoning Effort
+                      </div>
+                      <div className="flex rounded-lg p-0.5 border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
+                        {reasoningTiers.map(tier => (
+                          <button
+                            key={tier}
+                            onClick={() => {
+                              setReasoningEffort(tier)
+                            }}
+                            className={`flex-1 py-1 text-center text-[11px] rounded-md transition-all ${
+                              reasoningEffort === tier
+                                ? 'bg-blue-600 text-white font-medium shadow-sm'
+                                : 'text-[#9aa0a6] hover:text-white'
+                            }`}
+                          >
+                            {tier}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Right Controls: Mic + Send / Stop */}
