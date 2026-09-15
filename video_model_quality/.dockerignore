@@ -1,0 +1,41 @@
+# Keep the image small: ship only src/, tools/, studio/.
+.git/
+.github/
+out/
+tests/
+notebooks/
+goal_videos/
+docs/
+.workbuddy-ai/
+.venv/
+venv/
+env/
+
+# Never ship media or caches.
+*.mp4
+*.gif
+*.png
+*.jpg
+*.jpeg
+*.ipynb
+*.wav
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Agent-bus / session artifacts.
+.gemini-convo-seen
+.oc2-convo-seen
+.pi-convo-seen
+conversation.md
+handoff.md
+*.log
+*.bat
+*.ps1
+
+# Build + platform config that is not needed inside the image.
+Dockerfile
+.dockerignore
+render.yaml
+netlify.toml
+*.md

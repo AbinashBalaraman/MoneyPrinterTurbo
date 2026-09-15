@@ -1,0 +1,13 @@
+# AutoShorts topic backlog
+#
+# This is the file the scheduled runner reads. One topic per line.
+#   - Blank lines and lines starting with # are ignored.
+#   - Add a reference URL after a | separator if you want one.
+#   - Order does not matter: a topic's identity comes from its text and URL,
+#     so you can reorder, insert and delete freely without confusing the ledger.
+#   - Once a topic has been generated it is never picked up again.
+#
+# Point AUTOSHORTS_SOURCE_TYPE at rss in .env to switch to a feed instead.
+
+The quiet power of a morning walk
+Why the night sky still surprises astronomers

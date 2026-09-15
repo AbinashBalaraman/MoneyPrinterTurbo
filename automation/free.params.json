@@ -1,0 +1,19 @@
+{
+  "video_source": "pexels",
+  "video_aspect": "9:16",
+  "video_clip_duration": 5,
+  "video_count": 1,
+  "video_concat_mode": "random",
+  "match_materials_to_script": true,
+
+  "voice_name": "en-AU-NatashaNeural-Female",
+  "voice_volume": 1.0,
+  "voice_rate": 1.0,
+
+  "subtitle_enabled": true,
+  "bgm_type": "random",
+  "bgm_volume": 0.2,
+
+  "paragraph_number": 1,
+  "n_threads": 2
+}

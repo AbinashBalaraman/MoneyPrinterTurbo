@@ -1,0 +1,29 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.pytest_cache/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Video outputs and heavy exports
+out/*.mp4
+out/*.png
+*.mp4
+!goal_videos/*.mp4
+
+# Model weights
+models/*.onnx
+models/*.pt
+models/*.pth
+checkpoints/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

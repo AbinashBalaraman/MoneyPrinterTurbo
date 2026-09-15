@@ -1,0 +1,5 @@
+{
+  "video_script": "This is a smoke test script used to verify the automation pipeline end to end. It supplies a fixed script so that no language model call is made, which keeps the test free and offline.",
+  "video_language": "en",
+  "paragraph_number": 1
+}

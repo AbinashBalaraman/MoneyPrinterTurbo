@@ -1,0 +1,32 @@
+{
+  "title": "Why Small Habits Beat Big Goals",
+  "aspect": "9:16",
+  "voice": "en-US-AndrewMultilingualNeural",
+  "scenes": [
+    {
+      "narration": "You do not rise to the level of your goals. You fall to the level of your systems.",
+      "stock_query": "mountain,climber,silhouette",
+      "motion": "zoom_in"
+    },
+    {
+      "narration": "A goal is a destination. A system is the road you actually walk every day.",
+      "stock_query": "road,path,sunrise",
+      "motion": "pan_right"
+    },
+    {
+      "narration": "One percent better each day compounds into thirty-seven times better in a year.",
+      "stock_query": "chart,growth,graph",
+      "motion": "zoom_out"
+    },
+    {
+      "narration": "So stop negotiating with motivation. Make the first step absurdly small.",
+      "stock_query": "running,shoes,morning",
+      "motion": "zoom_in"
+    },
+    {
+      "narration": "Small habits beat big goals. Every single time.",
+      "stock_query": "summit,flag,sky",
+      "motion": "static"
+    }
+  ]
+}

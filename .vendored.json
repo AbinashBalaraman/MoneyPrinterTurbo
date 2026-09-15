@@ -1,0 +1,167 @@
+{
+  "generated_at": "2026-09-13T16:54:25",
+  "generated_by": "tools/consolidate_projects.py",
+  "note": "Sub-projects vendored flat into AutoShorts (nested .git pruned). Originals remain untouched at source_path.",
+  "excluded_dirs": [
+    ".cache",
+    ".env.d",
+    ".git",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "bower_components",
+    "env",
+    "node_modules",
+    "venv"
+  ],
+  "projects": {
+    "flowkit": {
+      "status": "copied",
+      "source_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\flowkit",
+      "dest_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\AutoShorts\\flowkit",
+      "source": {
+        "git": true,
+        "head": "f2076988e3888cfec34092ba6ef4836e77842c2a",
+        "branch": "main",
+        "remote": "https://github.com/crisng95/flowkit.git",
+        "dirty": true,
+        "dirty_files": 36
+      },
+      "files_copied": 334,
+      "bytes_copied": 15277579,
+      "excluded_dirs": 15,
+      "excluded_files": 0,
+      "errors": [],
+      "seconds": 51.6
+    },
+    "shorts_content_engine": {
+      "status": "copied",
+      "source_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine",
+      "dest_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\AutoShorts\\shorts_content_engine",
+      "source": {
+        "git": true,
+        "head": "30c05d2cb5952da074a2b7f66a7f67e411dc2d91",
+        "branch": "fork/money-bridge",
+        "remote": null,
+        "dirty": true,
+        "dirty_files": 27
+      },
+      "files_copied": 225,
+      "bytes_copied": 26056080,
+      "excluded_dirs": 15,
+      "excluded_files": 0,
+      "errors": [],
+      "seconds": 33.4
+    },
+    "opencode_endpoint": {
+      "status": "copied",
+      "source_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\opencode_endpoint",
+      "dest_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\AutoShorts\\opencode_endpoint",
+      "source": {
+        "git": false
+      },
+      "files_copied": 8,
+      "bytes_copied": 35605,
+      "excluded_dirs": 1,
+      "excluded_files": 0,
+      "errors": [],
+      "seconds": 0.6
+    },
+    "video_model": {
+      "status": "copied",
+      "source_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\video_model",
+      "dest_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\AutoShorts\\video_model",
+      "source": {
+        "git": true,
+        "head": "a3770da0a8831ae2a7f9c924bd633a4c6c8d44b6",
+        "branch": "render",
+        "remote": null,
+        "dirty": false,
+        "dirty_files": 0
+      },
+      "files_copied": 29,
+      "bytes_copied": 523127,
+      "excluded_dirs": 2,
+      "excluded_files": 0,
+      "errors": [],
+      "seconds": 2.0
+    },
+    "video_model_dev": {
+      "status": "copied",
+      "source_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\video_model_dev",
+      "dest_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\AutoShorts\\video_model_dev",
+      "source": {
+        "git": true,
+        "head": "f84139cb60458644efe1881b86d5c6d2990c3286",
+        "branch": "dev",
+        "remote": "c:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\video_model",
+        "dirty": true,
+        "dirty_files": 1
+      },
+      "files_copied": 167,
+      "bytes_copied": 28519609,
+      "excluded_dirs": 7,
+      "excluded_files": 0,
+      "errors": [],
+      "seconds": 13.6
+    },
+    "video_model_quality": {
+      "status": "copied",
+      "source_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\video_model_quality",
+      "dest_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\AutoShorts\\video_model_quality",
+      "source": {
+        "git": true,
+        "head": "dc1d20ec58455f041af7dfdaf3250a63172f8757",
+        "branch": "render",
+        "remote": null,
+        "dirty": true,
+        "dirty_files": 25
+      },
+      "files_copied": 517,
+      "bytes_copied": 45931663,
+      "excluded_dirs": 7,
+      "excluded_files": 0,
+      "errors": [],
+      "seconds": 39.6
+    },
+    "content_creation": {
+      "status": "copied",
+      "source_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\content_creation",
+      "dest_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\AutoShorts\\content_creation",
+      "source": {
+        "git": false
+      },
+      "files_copied": 64,
+      "bytes_copied": 106093578,
+      "excluded_dirs": 1,
+      "excluded_files": 0,
+      "errors": [],
+      "seconds": 13.4
+    },
+    "agentMemory": {
+      "status": "copied",
+      "source_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\agentMemory",
+      "dest_path": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\AutoShorts\\agentMemory",
+      "source": {
+        "git": true,
+        "head": "0409b7b7bb6fe443d0d4b6a6b1ee0d4df214f3cd",
+        "branch": "main",
+        "remote": "https://github.com/webzler/agentMemory.git",
+        "dirty": true,
+        "dirty_files": 1
+      },
+      "files_copied": 67,
+      "bytes_copied": 658917,
+      "excluded_dirs": 2,
+      "excluded_files": 0,
+      "errors": [],
+      "seconds": 15.3
+    }
+  }
+}

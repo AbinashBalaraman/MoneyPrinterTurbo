@@ -49,3 +49,34 @@ htmlcov/
 # Generated test media artifacts
 /resource/public/demo.*
 .workbuddy-ai/
+
+# ── Vendored sub-projects ───────────────────────────────────────────────
+# The projects under this repo (flowkit/, shorts_content_engine/, ...) are
+# vendored source-only; their build output and runtime state are regenerated
+# locally. See .vendored.json for provenance and tools/consolidate_projects.py
+# for the copy rules.
+
+# Python caches (the unanchored __pycache__ above does not cover these)
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+*.egg-info/
+
+# FlowKit runtime state and render output
+flowkit/output/
+flowkit/*.db-wal
+flowkit/*.db-shm
+flowkit/dashboard/dist/
+flowkit/dashboard/.vite/
+
+# Generated media from the content pipeline
+content_creation/out/
+video_model/out/
+video_model_dev/out/
+video_model_quality/out/
+
+# Scratch space for one-off scripts and captured command output
+.tmp/
+

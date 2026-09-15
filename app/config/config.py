@@ -15,11 +15,23 @@ from app import __version__
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 config_file = f"{root_dir}/config.toml"
 
+# `.env` is the primary configuration surface for the automation pipeline, so a
+# failure to load it must not be silent. The original bare `except: pass` made a
+# missing python-dotenv indistinguishable from an empty .env file.
+_dotenv_path = os.path.join(root_dir, ".env")
 try:
     from dotenv import load_dotenv
-    load_dotenv(os.path.join(root_dir, ".env"), override=True)
-except Exception:
-    pass
+except ImportError:
+    logger.warning(
+        "python-dotenv is not installed; .env will not be loaded. "
+        "Run `uv sync`, or `pip install python-dotenv`."
+    )
+else:
+    if os.path.isfile(_dotenv_path):
+        if not load_dotenv(_dotenv_path, override=True):
+            logger.warning(f"env file exists but could not be loaded: {_dotenv_path}")
+    else:
+        logger.debug(f"no env file at {_dotenv_path}; using config.toml only")
 _CONTAINER_CGROUP_MARKERS = ("docker", "containerd", "kubepods", "libpod", "podman")
 _DOCKER_HOST_GATEWAY_NAME = "host.docker.internal"
 _config_save_lock = threading.RLock()
@@ -589,6 +601,26 @@ app["redis_host"] = os.getenv(
     os.getenv("REDIS_HOST", app.get("redis_host", "localhost")),
 )
 
+def _env_bool(env_var: str):
+    """Return a parsed boolean for an env var, or None when unset/unusable.
+
+    Returning None (rather than a default) keeps an absent variable from
+    clobbering whatever config.toml already provided. Unrecognised spellings are
+    ignored and logged instead of coerced, because a bare string such as
+    "false" would otherwise read as truthy and silently enable publishing.
+    """
+    raw = os.getenv(env_var)
+    if raw is None or not raw.strip():
+        return None
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    logger.warning(f"ignoring {env_var}: not a recognised boolean ({raw!r})")
+    return None
+
+
 def _sync_env_to_config():
     env_mappings = {
         "LLM_PROVIDER": ("app", "llm_provider"),
@@ -616,6 +648,14 @@ def _sync_env_to_config():
         "OPENCODE_REASONING": ("app", "opencode_reasoning"),
         "CF_WORKER_IMAGE_URL": ("app", "cf_worker_image_url"),
         "CF_WORKER_IMAGE_KEY": ("app", "cf_worker_image_key"),
+        # Publish path (Upload-Post). Kept env-driven so the automation pipeline
+        # can be configured entirely from .env without editing config.toml.
+        "UPLOAD_POST_API_KEY": ("app", "upload_post_api_key"),
+        "UPLOAD_POST_USERNAME": ("app", "upload_post_username"),
+        "UPLOAD_POST_YOUTUBE_PRIVACY_STATUS": (
+            "app",
+            "upload_post_youtube_privacy_status",
+        ),
     }
     for env_var, (section_name, key) in env_mappings.items():
         val = os.getenv(env_var)
@@ -627,10 +667,23 @@ def _sync_env_to_config():
             elif section_name == "azure":
                 azure[key] = val.strip()
 
+    # Publish switches are parsed as real booleans. This is what makes a per-run
+    # dry run possible: export UPLOAD_POST_AUTO_UPLOAD=false instead of editing
+    # config.toml and hoping you remember to put it back.
+    for env_var, target_key in [
+        ("UPLOAD_POST_ENABLED", "upload_post_enabled"),
+        ("UPLOAD_POST_AUTO_UPLOAD", "upload_post_auto_upload"),
+        ("UPLOAD_POST_YOUTUBE_MADE_FOR_KIDS", "upload_post_youtube_made_for_kids"),
+    ]:
+        parsed = _env_bool(env_var)
+        if parsed is not None:
+            app[target_key] = parsed
+
     for env_list_var, target_key in [
         ("PEXELS_API_KEY", "pexels_api_keys"),
         ("PIXABAY_API_KEY", "pixabay_api_keys"),
         ("COVERR_API_KEY", "coverr_api_keys"),
+        ("UPLOAD_POST_PLATFORMS", "upload_post_platforms"),
     ]:
         val = os.getenv(env_list_var)
         if val and val.strip():

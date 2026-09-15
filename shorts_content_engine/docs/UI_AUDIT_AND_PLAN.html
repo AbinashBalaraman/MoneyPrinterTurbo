@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline &amp; GUI — Audit and Build Plan</title>
+<style>
+  :root{
+    --bg:#fbfbfa; --panel:#ffffff; --ink:#1c1d21; --muted:#6b6f76;
+    --line:#e4e4e1; --line2:#efefec;
+    --red:#b42318; --redbg:#fef3f2;
+    --amber:#b54708; --amberbg:#fffaeb;
+    --green:#067647; --greenbg:#ecfdf3;
+    --blue:#175cd3; --bluebg:#eff8ff;
+    --purple:#6941c6;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:56px 32px 120px}
+
+  header.top{border-bottom:2px solid var(--ink);padding-bottom:22px;margin-bottom:38px}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  h1{font-size:31px;line-height:1.22;margin:0 0 12px;letter-spacing:-.02em}
+  .sub{color:var(--muted);font-size:14px;margin:0}
+  .meta{display:flex;flex-wrap:wrap;gap:20px;margin-top:18px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .meta b{color:var(--ink);font-weight:600}
+
+  h2{font-size:20px;margin:52px 0 6px;letter-spacing:-.01em;padding-bottom:9px;border-bottom:1px solid var(--line)}
+  h2 .num{font-family:var(--mono);font-size:12px;color:var(--muted);margin-right:9px}
+  h3{font-size:14.5px;margin:26px 0 8px;letter-spacing:-.005em}
+  p{margin:11px 0}
+  ul,ol{margin:11px 0;padding-left:22px}
+  li{margin:5px 0}
+  code{font-family:var(--mono);font-size:12.5px;background:#f3f3f0;border:1px solid var(--line2);border-radius:4px;padding:1px 5px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:20px 22px;margin:18px 0}
+  .card.tight{padding:16px 18px}
+  .verdict{border-left:3px solid var(--green);background:var(--greenbg);border-radius:0 9px 9px 0;border-top:1px solid #d3f0dd;border-right:1px solid #d3f0dd;border-bottom:1px solid #d3f0dd}
+
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.5px}
+  th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:9px 11px;border-bottom:1px solid var(--line);background:#f7f7f4}
+  td{padding:10px 11px;border-bottom:1px solid var(--line2);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.ev{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
+  td.mono{font-family:var(--mono);font-size:12px}
+
+  .tag{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:4px;white-space:nowrap}
+  .t-crit{background:var(--redbg);color:var(--red);border:1px solid #fecdca}
+  .t-high{background:var(--amberbg);color:var(--amber);border:1px solid #fedf89}
+  .t-med{background:var(--bluebg);color:var(--blue);border:1px solid #b2ddff}
+  .t-fix{background:var(--greenbg);color:var(--green);border:1px solid #abefc6}
+
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 15px}
+  .stat .v{font-size:23px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .stat .l{font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+  .stat.ok .v{color:var(--green)} .stat.bad .v{color:var(--red)}
+
+  .quote{border-left:3px solid var(--line);padding:2px 0 2px 16px;margin:16px 0;color:var(--muted);font-style:italic}
+  .file{font-family:var(--mono);font-size:12px;color:var(--blue)}
+  .note{font-size:13px;color:var(--muted)}
+  hr{border:0;border-top:1px solid var(--line);margin:34px 0}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.stat-row{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.wrap{padding:32px 18px 80px}}
+  @media print{body{background:#fff}.card,table{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">shorts_content_engine · flowkit · AutoShorts</div>
+  <h1>Pipeline &amp; GUI — Audit and Build Plan</h1>
+  <p class="sub">What is broken, what is fixed, what gets built, and on what foundation.</p>
+  <div class="meta">
+    <span>Date <b>2026-09-13</b></span>
+    <span>Scope <b>script → images → watermark → assemble → voiceover → publish</b></span>
+    <span>Precondition <b>publishing fixed ✓</b></span>
+  </div>
+</header>
+
+<!-- ============ BOTTOM LINE ============ -->
+<h2><span class="num">00</span>Bottom line</h2>
+
+<p>Publishing is fixed and verified, so the GUI work is unblocked. The audit found that your
+complaints were not stylistic — they were accurate descriptions of missing features. Three of them
+are structural, not cosmetic:</p>
+
+<div class="card">
+<ul style="margin:0">
+  <li><b>There is no log system.</b> No log API exists in the flowkit backend, and the component named
+      <code>LogViewer</code> renders a request table instead of log lines. "Logs are not visible" is
+      literally true — nothing was ever built to show them.</li>
+  <li><b>The UI lies in specific, findable places.</b> The chat seeds a fabricated assistant message
+      claiming 1,015 reasoning tokens for text no model produced, and invents a reasoning trace when
+      the model returns none. A mock upload's fabricated URL is exposed as a "live URL".</li>
+  <li><b>Models mismatch because two hand-maintained lists drifted.</b> The dashboard ships one model
+      that does not exist in the reference catalogue, and never queries the live <code>/models</code>
+      endpoint. A hardcoded API key ships in the client bundle.</li>
+</ul>
+</div>
+
+<p>The new pipeline you asked for — flowkit bridge, watermark scrubber, storyboard — has
+<b>zero presence</b> in either existing UI. That is why features feel missing: they are.</p>
+
+<div class="stat-row">
+  <div class="stat ok"><div class="v">52</div><div class="l">publishing tests green</div></div>
+  <div class="stat bad"><div class="v">17</div><div class="l">defects catalogued</div></div>
+  <div class="stat bad"><div class="v">0</div><div class="l">log endpoints in backend</div></div>
+  <div class="stat ok"><div class="v">6</div><div class="l">verified libraries selected</div></div>
+</div>
+
+<!-- ============ PUBLISHING ============ -->
+<h2><span class="num">01</span>Publishing — fixed and verified</h2>
+
+<div class="card verdict">
+<p style="margin:0 0 8px"><b>YouTube now uploads through the official Data API v3.</b> The previous
+adapter returned <code>success=True</code> with a hand-written <code>pending_upload</code> URL and no
+video behind it. That is gone.</p>
+<p style="margin:0" class="note">New: <span class="file">src/distribution/adapters/youtube_api.py</span>,
+<span class="file">src/distribution/credentials.py</span>. The adapter refuses to report success without
+a real video id from the API, enforces title/description/tag limits, and always sets
+<code>selfDeclaredMadeForKids</code> (without it YouTube rejects the upload).</p>
+</div>
+
+<h3>Fake success removed everywhere</h3>
+<p>TikTok and Instagram have no supported unapproved posting route, so instead of inventing a success
+they now <b>fail closed with an explanation</b>. YouTube's old browser-scraper adapter is deprecated and
+delegates to the API adapter. This is the single most important change for your
+"empty buttons" complaint: the backend can no longer claim something happened when it did not.</p>
+
+<h3>Dry runs are recorded, but never as "published"</h3>
+<p>An important design decision. Previously a <code>--mock</code> run wrote three publication rows and
+flipped the episode to <code>published</code> — indistinguishable from a real upload. Now a mock is
+recorded with <code>status="dry_run"</code> and metadata <code>{"is_mock": true}</code>, and it
+<b>never</b> transitions the episode. You get the audit trail without the lie.</p>
+
+<table>
+  <thead><tr><th>Surface</th><th>Before</th><th>After</th></tr></thead>
+  <tbody>
+    <tr><td>YouTube (live)</td><td class="mono">fabricated URL, success=True</td><td class="mono">real video id from Data API v3</td></tr>
+    <tr><td>TikTok / Instagram</td><td class="mono">fabricated URL, success=True</td><td class="mono">success=False + reason</td></tr>
+    <tr><td>Mock / dry run</td><td class="mono">ledger row "published"</td><td class="mono">ledger row "dry_run"</td></tr>
+    <tr><td><code>platform_urls</code></td><td class="mono">included fabricated URLs</td><td class="mono">live URLs only</td></tr>
+    <tr><td>Episode status</td><td class="mono">flipped to "published" on mock</td><td class="mono">only on confirmed upload</td></tr>
+  </tbody>
+</table>
+
+<p class="note"><b>Verified:</b> 52 targeted tests pass (adapter, credentials, manager, ledger, e2e
+distribution). The critical regression guard is
+<code>test_publish_fails_when_api_returns_no_video_id</code> — a 200 response with no id must be a
+failure, which is precisely the bug that existed before.</p>
+
+<h3>Two test defects found and fixed while verifying</h3>
+<table>
+  <thead><tr><th>Defect</th><th>Cause</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>storyboard</code> command undocumented</td>
+      <td>A real CLI subcommand was never added to the README, so the docs-consistency test failed.</td>
+      <td><span class="tag t-fix">fixed</span></td>
+    </tr>
+    <tr>
+      <td><code>test_f12_b02</code> not hermetic</td>
+      <td>Used <code>tmp_path</code> for the DB but not for output, so <code>batch</code> wrote to the shared <code>output/</code> directory. A leftover file from an aborted run changed the result.</td>
+      <td><span class="tag t-fix">fixed</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============ DEFECTS ============ -->
+<h2><span class="num">02</span>Defect register — evidence, not impressions</h2>
+
+<p>Every item below is tied to a file and line. These are the concrete causes of the flaws you listed.</p>
+
+<h3>A · Logs and processing visibility</h3>
+<table>
+  <thead><tr><th style="width:34px">#</th><th>Defect</th><th>Evidence</th><th style="width:66px">Severity</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td><b><code>LogViewer</code> is not a log viewer.</b> It fetches <code>/api/requests</code> and renders one row per request. There are no log lines, no timestamps from logs, no levels, no stdout. The "detail" column shows only an error message or retry count, so it is blank for most rows.</td>
+      <td class="ev">LogViewer.tsx:30–44, 48–60, 127</td>
+      <td><span class="tag t-crit">critical</span></td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td><b>No log API exists at all.</b> No <code>/api/logs</code> route, no log model, no log persistence. This is a missing feature end-to-end, not a rendering bug.</td>
+      <td class="ev">grep: 0 hits in agent/</td>
+      <td><span class="tag t-crit">critical</span></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td><b>Events are lost while disconnected.</b> The WebSocket reconnects with backoff but has no replay, sequence numbers, or buffer. Anything emitted during a drop is gone forever.</td>
+      <td class="ev">useWebSocket.ts:34–43</td>
+      <td><span class="tag t-high">high</span></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td><b>"Pause" discards rather than defers.</b> Pausing only stops the refetch, so resuming shows a snapshot — the log lines produced while paused are never delivered.</td>
+      <td class="ev">LogViewer.tsx:41–44, 98</td>
+      <td><span class="tag t-high">high</span></td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td><b>Every event refetches everything.</b> On each <code>request_update</code> it reloads <i>all</i> requests and characters — O(n) network and re-render per event, which thrashes on a busy queue.</td>
+      <td class="ev">LogViewer.tsx:41–44</td>
+      <td><span class="tag t-med">medium</span></td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td><b>Event payloads are untyped.</b> <code>WSEvent</code> is <code>{type, data, timestamp}</code> with <code>data</code> as an untyped bag, so no event shape is enforced or checked.</td>
+      <td class="ev">types/index.ts:111–115</td>
+      <td><span class="tag t-med">medium</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>B · The chat that "does not feel natural"</h3>
+<table>
+  <thead><tr><th style="width:34px">#</th><th>Defect</th><th>Evidence</th><th style="width:66px">Severity</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>7</td>
+      <td><b>Fabricated telemetry on load.</b> The first message is a canned string that claims <code>reasoningTokens: 1015</code>, <code>effortUsed: 'xhigh'</code> and a model name — for text that no model ever produced. It is presented identically to a real response.</td>
+      <td class="ev">AgentChatPage.tsx:180–191</td>
+      <td><span class="tag t-crit">critical</span></td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td><b>Invented reasoning traces.</b> When the model returns no thought trace, the UI synthesises one: <i>"Model executed deep reasoning phase with N thought tokens to verify…"</i> This fabricates the model's internal process.</td>
+      <td class="ev">AgentChatPage.tsx:709–714</td>
+      <td><span class="tag t-crit">critical</span></td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td><b>No markdown rendering.</b> Content is dumped as raw text, so <code>**bold**</code>, code fences, lists and tables appear as literal characters. This alone makes it read as templated.</td>
+      <td class="ev">AgentChatPage.tsx:719–721</td>
+      <td><span class="tag t-high">high</span></td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td><b>No token streaming.</b> The full response is awaited before anything appears — no partial text, no stop button, no sense of progress.</td>
+      <td class="ev">opencode.ts:170–174, 227–231</td>
+      <td><span class="tag t-high">high</span></td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td><b>Header spoofing.</b> Requests impersonate VS Code with a forged <code>User-Agent</code>.</td>
+      <td class="ev">AgentChatPage.tsx:157–159</td>
+      <td><span class="tag t-med">medium</span></td>
+    </tr>
+    <tr>
+      <td>12</td>
+      <td><b>Manifest dispatch uses a brittle regex</b> over the raw message and only finds the first code block, so a differently-formatted reply silently offers no action.</td>
+      <td class="ev">AgentChatPage.tsx:329–340</td>
+      <td><span class="tag t-med">medium</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>C · OpenCode models and credentials</h3>
+<table>
+  <thead><tr><th style="width:34px">#</th><th>Defect</th><th>Evidence</th><th style="width:66px">Severity</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>13</td>
+      <td><b>A model that does not exist.</b> The dashboard offers <code>nemotron-3.5-lightning-free</code>, which is absent from the reference catalogue. Selecting it can only fail.</td>
+      <td class="ev">opencode.ts:96–104 vs models.py</td>
+      <td><span class="tag t-crit">critical</span></td>
+    </tr>
+    <tr>
+      <td>14</td>
+      <td><b>The API key is hardcoded in the client bundle</b> and sent from the browser. Anyone who loads the dashboard receives it.</td>
+      <td class="ev">opencode.ts:107</td>
+      <td><span class="tag t-crit">critical</span></td>
+    </tr>
+    <tr>
+      <td>15</td>
+      <td><b>Unknown models are silently mis-routed.</b> <code>getModelInfo()</code> invents the endpoint and reasoning tiers from substring matching, so a wrong model id is sent to the wrong endpoint and 400s.</td>
+      <td class="ev">opencode.ts:120–136</td>
+      <td><span class="tag t-high">high</span></td>
+    </tr>
+    <tr>
+      <td>16</td>
+      <td><b>The live model list is never queried.</b> <code>/models</code> is called nowhere, so the hardcoded list is the only source and drift is undetectable.</td>
+      <td class="ev">grep: 0 hits</td>
+      <td><span class="tag t-high">high</span></td>
+    </tr>
+    <tr>
+      <td>17</td>
+      <td><b>The proxy is a dev-server rewrite only.</b> <code>/api/opencode</code> is rewritten by Vite, so a production build has no backend route and will 404.</td>
+      <td class="ev">vite.config.ts:16–22</td>
+      <td><span class="tag t-high">high</span></td>
+    </tr>
+    <tr>
+      <td>18</td>
+      <td><b>Naming drift between the two catalogues:</b> the reference uses <code>chat-completions</code>, the dashboard uses <code>chat/completions</code>.</td>
+      <td class="ev">models.py:44–49</td>
+      <td><span class="tag t-med">medium</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>D · The AutoShorts Streamlit UI</h3>
+<table>
+  <thead><tr><th style="width:34px">#</th><th>Defect</th><th>Evidence</th><th style="width:66px">Severity</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>19</td>
+      <td><b>The new pipeline has zero UI presence.</b> <code>flowkit_bridge</code>, <code>watermark_scrub</code> and <code>storyboard_prompts</code> appear 0 times. Nothing you built is reachable from the UI.</td>
+      <td class="ev">grep: 0 hits each</td>
+      <td><span class="tag t-crit">critical</span></td>
+    </tr>
+    <tr>
+      <td>20</td>
+      <td><b>Logs are a static blob.</b> Rendered as <code>st.code("\n".join(records))</code> — no streaming, no levels, no filtering, no search, no auto-scroll.</td>
+      <td class="ev">Main.py:1893–1902</td>
+      <td><span class="tag t-high">high</span></td>
+    </tr>
+    <tr>
+      <td>21</td>
+      <td><b>One progress bar for the whole pipeline.</b> A single <code>st.progress</code> call covers every stage; per-stage state is invisible.</td>
+      <td class="ev">Main.py:1916</td>
+      <td><span class="tag t-high">high</span></td>
+    </tr>
+    <tr>
+      <td>22</td>
+      <td><b>Architecture fights the UI model.</b> 7,620 lines in one file, 307 <code>session_state</code> references, 19 <code>st.rerun()</code> calls — every interaction re-executes the entire script.</td>
+      <td class="ev">Main.py (7620 lines)</td>
+      <td><span class="tag t-high">high</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="note"><b>Credit where due:</b> the Streamlit log <i>buffer</i> is well built — a bounded
+<code>deque(maxlen=1000)</code>, capped at 20 tasks, polled by a Fragment every 0.5s. The engineering is
+fine; only the presentation is poor. That is a smaller problem than it looks.</p>
+
+<!-- ============ ROOT CAUSE ============ -->
+<h2><span class="num">03</span>Why models mismatch — the root cause</h2>
+
+<p>You said models "mismatch sometimes". Here is the exact mechanism. There are two independently
+hand-maintained model lists, and they have already drifted:</p>
+
+<table>
+  <thead><tr><th>Model id</th><th>opencode_endpoint (reference)</th><th>flowkit dashboard</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">muse-spark-1.3-contributor-free</td><td>present</td><td>present</td></tr>
+    <tr><td class="mono">muse-spark-1.2-contributor-free</td><td>present</td><td>present</td></tr>
+    <tr><td class="mono">deepseek-v4-flash-free</td><td>present</td><td>present</td></tr>
+    <tr><td class="mono">mimo-v2.5-free</td><td>present</td><td>present</td></tr>
+    <tr><td class="mono">nemotron-3-ultra-free</td><td>present</td><td>present</td></tr>
+    <tr><td class="mono">ling-3.0-flash-fin-free</td><td>present</td><td>present</td></tr>
+    <tr style="background:var(--redbg)">
+      <td class="mono">nemotron-3.5-lightning-free</td>
+      <td><b>absent</b></td><td><b>offered to users</b></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The reference project already has the correct mechanism —
+<code>get_all_models()</code> in <span class="file">opencode_endpoint/models.py:151</span> merges live
+discovery from the API, local VS Code config, and canonical fallbacks. The dashboard simply does not
+use it, and keeps its own copy instead.</p>
+
+<div class="card">
+<h3 style="margin-top:0">The fix — one source of truth</h3>
+<ol style="margin-bottom:0">
+  <li><b>Serve the list from the backend.</b> Add a route that calls the reference
+      <code>get_all_models()</code> and returns the live catalogue. The key stays server-side.</li>
+  <li><b>Delete the client-side list and the hardcoded key.</b> The frontend fetches models at runtime
+      and never holds a credential.</li>
+  <li><b>Validate before sending.</b> If the selected id is not in the live list, refuse the request
+      with a clear message instead of sending it and failing obscurely.</li>
+  <li><b>Surface what actually answered.</b> Compare the gateway-reported model against the requested
+      one and show the truth if they differ.</li>
+  <li><b>Normalise the endpoint naming</b> so both sides agree on one spelling.</li>
+  <li><b>Make discovery failure loud.</b> <code>fetch_models_online()</code> currently returns an empty
+      list on any error, so a stale catalogue looks healthy.</li>
+</ol>
+</div>
+
+<!-- ============ LIBRARIES ============ -->
+<h2><span class="num">04</span>Foundation — verified libraries, not hand-rolled</h2>
+
+<p>You asked me to search GitHub rather than build from scratch. Star counts and licences checked
+directly against the GitHub API today. All permissive; none introduce a paid dependency.</p>
+
+<table>
+  <thead><tr><th>Need</th><th>Choice</th><th>Stars</th><th>Licence</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Log console</td>
+      <td><b>xterm.js</b></td><td class="mono">21,167</td><td>MIT</td>
+      <td>The terminal engine inside VS Code. Handles ANSI colour, huge buffers, streaming and search — the exact shape of a build log.</td>
+    </tr>
+    <tr>
+      <td>Chat / agent UI</td>
+      <td><b>assistant-ui</b></td><td class="mono">12,129</td><td>MIT</td>
+      <td>Purpose-built chat primitives, shadcn-based, actively maintained (pushed today). Replaces the hand-rolled message list.</td>
+    </tr>
+    <tr>
+      <td>AI components</td>
+      <td><b>shadcn.io/ai</b></td><td class="mono">50 comps</td><td>open</td>
+      <td>Zero new deps (shadcn + Radix). Ships the exact pieces needed: <code>Reasoning</code>, <code>Chain of Thought</code>, <code>Tool</code>, <code>Agent</code>, <code>Terminal</code>, plus <code>Node</code>/<code>Edge</code>/<code>Connection</code> for the pipeline graph.</td>
+    </tr>
+    <tr>
+      <td>Streaming protocol</td>
+      <td><b>Vercel AI SDK</b></td><td class="mono">26,712</td><td>Apache-2.0</td>
+      <td>Standardised streaming, tool-call and reasoning-part handling — removes the hand-written response parsing.</td>
+    </tr>
+    <tr>
+      <td>Virtualisation</td>
+      <td><b>react-window</b></td><td class="mono">17,204</td><td>MIT</td>
+      <td>For long structured lists (requests, episodes, assets) so large runs stay responsive.</td>
+    </tr>
+    <tr>
+      <td>Pattern reference</td>
+      <td><b>microsoft/vscode</b></td><td class="mono">192,098</td><td>MIT</td>
+      <td>Not embedded — used as the reference for the activity-bar layout, output channels and per-task log surfaces.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="note"><b>Noted and rejected:</b> <code>melloware/react-logviewer</code> (167★, MPL-2.0) is a
+plausible log viewer, but it has far fewer stars and a copyleft licence. You asked for the
+highest-starred option, and xterm.js is both more popular and more capable for this job.</p>
+
+<!-- ============ ARCHITECTURE ============ -->
+<h2><span class="num">05</span>Target architecture</h2>
+
+<p>One control surface instead of three half-finished ones. The flowkit dashboard is already
+React 19 + shadcn + Radix with routing, i18n, WebSocket and a pipeline tab — it is the right host. The
+Streamlit app becomes legacy once parity is reached.</p>
+
+<div class="card tight">
+<p style="margin:0 0 10px"><b>The pipeline page becomes the spine.</b> One vertical stage rail, each stage
+showing its own state and its own log stream:</p>
+<table style="margin:0">
+  <tbody>
+    <tr><td class="mono" style="width:150px">1 · Script</td><td>director output, pacing budget, manifest</td></tr>
+    <tr><td class="mono">2 · Images</td><td>flowkit stills, per-prompt status, retries</td></tr>
+    <tr><td class="mono">3 · Watermark</td><td>scrub result, pixels changed, before/after</td></tr>
+    <tr><td class="mono">4 · Assemble</td><td>clip timings, total duration vs target</td></tr>
+    <tr><td class="mono">5 · Voiceover</td><td>narration, audio ducking, mix</td></tr>
+    <tr><td class="mono">6 · Publish</td><td>dry run vs live, per-platform outcome, real URLs only</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>What this fixes, directly</h3>
+<ul>
+  <li><b>"Logs not visible"</b> → a real backend log bus plus an xterm.js console per stage, with
+      filtering, search and follow mode.</li>
+  <li><b>"Empty buttons"</b> → every action returns a typed result, and the UI renders the real
+      outcome. Dry runs are labelled as dry runs.</li>
+  <li><b>"Features not visible"</b> → the flowkit bridge, scrubber and storyboard each get a surface.</li>
+  <li><b>"Chat feels templated"</b> → real streaming, real markdown, real reasoning blocks — and no
+      fabricated telemetry.</li>
+  <li><b>"Models mismatching"</b> → one catalogue, served live from the backend, validated before use.</li>
+</ul>
+
+<!-- ============ PLAN ============ -->
+<h2><span class="num">06</span>Build plan</h2>
+
+<p>Ordered so each phase is independently useful and nothing is built on a missing foundation. The log
+bus comes first because every other phase depends on being able to see what happened.</p>
+
+<table>
+  <thead><tr><th style="width:74px">Phase</th><th>Deliverable</th><th>Unblocks</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">0</td><td><b>Log bus.</b> Structured log records persisted and broadcast over WebSocket, plus <code>/api/logs</code> with cursor pagination and replay-on-reconnect.</td><td>Everything</td></tr>
+    <tr><td class="mono">1</td><td><b>Log console.</b> Virtualised console (react-window) wired to the bus, per-stage filtering, search, follow mode, download. <b>Done.</b></td><td>Visibility</td></tr>
+    <tr><td class="mono">2</td><td><b>Pipeline view.</b> The six-stage rail with live per-stage status and inline logs. Required instrumenting the backend with a stage vocabulary first — without it the per-stage filter had nothing to match. <b>Done.</b></td><td>The core screen</td></tr>
+    <tr><td class="mono">3</td><td><b>Publish panel.</b> Dry-run vs live clearly separated, real URLs only, per-platform outcomes and retry. <b>Done</b> — see the data-path note below.</td><td>Shipping</td></tr>
+    <tr><td class="mono">4</td><td><b>OpenCode source of truth.</b> Backend model catalogue, key removed from the client, validation, endpoint naming normalised.</td><td>Agent Studio</td></tr>
+    <tr><td class="mono">5</td><td><b>Agent Studio rebuild.</b> assistant-ui + streaming + markdown + real reasoning. Fabricated telemetry deleted.</td><td>Natural chat</td></tr>
+    <tr><td class="mono">6</td><td><b>Parity and retirement.</b> Port remaining Streamlit-only features, then retire it.</td><td>One UI</td></tr>
+  </tbody>
+</table>
+
+<h3>Where publish data comes from</h3>
+
+<p>Publishing is performed by <code>shorts_content_engine</code>, which is headless by design — its
+own README commits to "zero-GUI batch automation". It has no HTTP API. The dashboard is FlowKit's.
+So the panel needed a data path, and the choice shaped the rest of the plan.</p>
+
+<p><b>Decided: the directing engine reports outcomes into FlowKit, and the dashboard reads FlowKit.</b>
+That keeps one UI, one WebSocket and one log bus rather than a second backend for the browser to
+talk to. FlowKit's <code>video</code> table already carried <code>youtube_id</code>,
+<code>privacy</code> and <code>tags</code>, so the schema was already pointing this way.</p>
+
+<p>Three properties are enforced in more than one place, deliberately, because each is a bug that
+already happened once:</p>
+
+<ul>
+  <li><b>A simulated upload is never a publication.</b> Enforced by a Pydantic validator, by the CRUD
+      layer, and by a <code>CHECK</code> constraint on the table — <code>is_mock = 1</code> forces
+      <code>status = 'dry_run'</code> with no URL and no post id, so the bad state is unrepresentable
+      even if a future caller forgets.</li>
+  <li><b>A 200 with no platform id is a failure.</b> <code>status = 'published'</code> requires a
+      <code>post_id</code>; without one the API returns 422 rather than recording a phantom post.</li>
+  <li><b>A mock's fabricated URL never reaches the UI.</b> The reporter drops it at the source, and
+      the table forbids storing it.</li>
+</ul>
+
+<p>Retry is honest about what it can do. The dashboard cannot upload, so pressing Retry records a
+<code>requested</code> row that the directing engine collects from
+<code>GET /api/publications/pending</code>. The row stays <code>requested</code> until something
+actually acts on it — the UI never shows a retry as done merely because it was asked for.</p>
+
+<!-- ============ OPEN ITEMS ============ -->
+<h2><span class="num">07</span>Needs you, not me</h2>
+
+<div class="card">
+<p style="margin-top:0"><b>Credentials exposed in local git history.</b> These need rotating at the
+source — I cannot fix them from here:</p>
+<ul>
+  <li>OpenCode Zen key in <code>flowkit</code> local commit <code>f207698</code>, present in
+      <code>PROJECT_ARCHITECTURE.md:172</code> and <code>dashboard/src/api/opencode.ts:107</code>.</li>
+  <li>Two GitHub PATs embedded in remote URLs inside <code>FamilyTree/.git/config</code> and
+      <code>Study_Guide/.git/config</code>.</li>
+</ul>
+<p style="margin-bottom:0" class="note">Rotate each one, then scrub history. Until rotated, assume they
+are compromised — they are in files, not just in memory.</p>
+</div>
+
+<div class="card">
+<p style="margin:0"><b>Two decisions before Phase 4 and 5:</b></p>
+<ol style="margin-bottom:0">
+  <li>Where should the OpenCode key live — the flowkit backend, or a separate small service?</li>
+  <li>Should the Streamlit UI be retired outright once parity is reached, or kept as a fallback?</li>
+</ol>
+</div>
+
+<hr>
+<p class="note">Evidence in this document was read directly from the source trees at
+<code>flowkit/dashboard</code>, <code>AutoShorts/webui</code>, <code>opencode_endpoint</code> and
+<code>shorts_content_engine</code>. Star counts and licences were queried from the GitHub API on
+2026-09-13. Defects marked <i>fixed</i> were verified by running the test suite.</p>
+
+</div>
+</body>
+</html>

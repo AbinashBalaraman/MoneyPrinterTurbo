@@ -1,0 +1,22 @@
+# Render blueprint — deploys the studio as a Docker web service.
+#
+# On Render: New + > Blueprint > pick this repo > it reads this file.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: stickman-studio
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    # Free = 0.1 CPU / 512 MB and spins down after ~15 min idle (cold start ~1 min).
+    # A 2-second SD clip takes ~12s on a normal core, so expect roughly minutes
+    # here. Bump to `starter` (0.5 CPU, always on) for a usable demo.
+    plan: free
+    envVars:
+      - key: STUDIO_DEFAULT_SD
+        value: "1"
+      - key: STUDIO_MAX_FRAMES
+        value: "240"
+      - key: STUDIO_OUT_DIR
+        value: /tmp/studio

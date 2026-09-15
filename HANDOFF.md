@@ -1,0 +1,423 @@
+# AutoShorts — Handoff
+
+**Written:** 2026-09-15 · **Head:** `e8f9c59` on branch `automation`
+**State:** running, green, and **nothing is blocked on code.** Three items need
+the owner's decision — §7.
+**Audience:** any agent (or person) picking this up cold. Everything needed is in
+this file or in the four docs it points to.
+
+---
+
+## 1. What this project is
+
+A fully automated short-form video pipeline. Give it a topic; it writes an
+episode script, generates the stills through Google Flow (via a Chrome
+extension), assembles narration + subtitles + BGM into a vertical MP4, scrubs
+the AI watermark, and publishes to YouTube Shorts / TikTok / Instagram Reels.
+The target is **unattended operation**.
+
+The owner is **Abi**. He talks in shorthand, wants real opinions rather than
+summaries, and explicitly values being told the hard thing over an optimistic
+claim.
+
+**This is a fork of MoneyPrinterTurbo.** That is important and easy to get wrong
+— see §3.1: the MoneyPrinterTurbo code at the repo root is **not** dead legacy,
+it is the assembly engine, and the pipeline depends on it.
+
+---
+
+## 2. How to run it
+
+### Services
+
+| Service | Address | PID at handoff |
+|---|---|---|
+| FlowKit agent (FastAPI) | `http://127.0.0.1:8100` | 15128 |
+| Extension WebSocket | `ws://127.0.0.1:9223` | 15128 |
+| Terminal WebSocket | `ws://127.0.0.1:8100/ws/terminal` | 15128 |
+| Dashboard (Vite) | `http://127.0.0.1:5173` | 8632 |
+
+```bash
+# backend  (must run UNSANDBOXED — see §8)
+cd flowkit && \
+  "C:/Users/SATHYA TRADERS/.workbuddy-ai/binaries/python/envs/flowkit/Scripts/python.exe" \
+  -m agent.main
+
+# dashboard
+cd flowkit/dashboard && \
+  "C:/Users/SATHYA TRADERS/.workbuddy-ai/binaries/node/versions/22.22.2-2/node.exe" \
+  node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5173
+```
+
+Both verified HTTP 200 at handoff. `curl` needs `--noproxy '*'` (§8).
+
+**Restarting the agent is safe.** The Chrome MV3 extension re-dials `9223` by
+itself within ~6s — no manual reload in `chrome://extensions`. Verified
+repeatedly.
+
+### Interpreters — there are four, and using the wrong one wastes real time
+
+| Purpose | Path |
+|---|---|
+| FlowKit agent (the server) | `.workbuddy-ai/binaries/python/envs/flowkit/Scripts/python.exe` |
+| **Pipeline** (SCE: director, render client, post, publish) | `AppData/Local/hermes/hermes-agent/venv/Scripts/python.exe` |
+| **Assembly** (MoneyPrinterTurbo, root `cli.py`) | `AutoShorts/.venv/Scripts/python.exe` |
+| Node | `.workbuddy-ai/binaries/node/versions/22.22.2-2/node.exe` |
+
+The pipeline and the assembly engine have **separate virtualenvs**. A CLI wrapper
+cannot use `sys.executable`. This is why `agent/operations/shell.py` exists and
+why its interpreter paths are config (`PIPELINE_PYTHON`, `ASSEMBLY_PYTHON`).
+
+Symptom of getting this wrong: `ModuleNotFoundError: No module named 'loguru'`
+when importing `cli.py` with the flowkit venv. It looks like a broken repo; it is
+a wrong interpreter.
+
+### Tests
+
+```bash
+cd flowkit && <flowkit-python> -m pytest tests/unit -q
+#   557 passed / 14 failed / 0 errors   (see §6 for the 14)
+
+cd shorts_content_engine && <pipeline-python> -m pytest tests/unit -q
+#   169 passed / 0 failed
+
+<flowkit-python> tools/check_boundaries.py
+#   boundary check passed — 5 rule(s) upheld
+```
+
+### The four docs
+
+| Doc | What it is |
+|---|---|
+| `docs/ARCHITECTURE.md` | **The map.** Departments, the dependency rule, every top-level directory's purpose. Read this second. |
+| `docs/IMPLEMENTATION.md` | The six-phase plan and its completion status. |
+| `docs/CHAT_UI_REVIEW.md` | The chat UI audit against the industry checklist, and the library decision. |
+| `HANDOFF.md` | This file. |
+
+---
+
+## 3. Architecture — the eight departments
+
+Full detail in `docs/ARCHITECTURE.md`. The short version:
+
+```
+topic ─► script ─► stills ─► video ─► clean ─► published
+       (Director) (Render) (Assembly) (Post)  (Publish)
+  ▲
+  └─ Ingest decides what to make, and that it is made once
+```
+
+| # | Department | Owns | Lives in | Entry point |
+|---|---|---|---|---|
+| 1 | **INGEST** | What to make next, once only. Topic sources, dedup ledger, claiming. | `automation/` | `python -m automation.runner` |
+| 2 | **DIRECTOR** | Story: scripts, pacing, characters, continuity, storyboards. | `shorts_content_engine/src/{director,storyboard,storage}/` | SCE `cli.py` |
+| 3 | **RENDER** | Prompts → media, via Google Flow. Queue, worker, extension bridge, and the client that drives it. | `flowkit/agent/` (server) + `shorts_content_engine/src/render_client/` (client) | `flowkit/agent/main.py` |
+| 4 | **ASSEMBLY** | Narration, subtitles, BGM, image→video concat. | `app/`, root `cli.py` | `python cli.py --batch-file …` |
+| 5 | **POST** | Watermark removal, metadata strip. | `shorts_content_engine/src/postprocess/` | SCE `cli.py scrub` |
+| 6 | **PUBLISH** | Uploading, and tracking outcomes. | `shorts_content_engine/src/distribution/`, `flowkit/agent/api/publications.py` | SCE `cli.py publish` |
+| 7 | **STUDIO** | Every pixel a human sees. | `flowkit/dashboard/` | `vite` → :5173 |
+| 8 | **ASSISTANT** | The chatbot: tool loop, memory, search. | `flowkit/agent/services/{chat_agent,agent_memory,web_search}.py` | inside RENDER's server |
+
+Plus **OPS** — logging, events, DB, config, the terminal PTY. Shared; owns no
+pipeline state.
+
+**The dependency rule:** a department may call the one to its left, and may not
+reach right. `INGEST → DIRECTOR → RENDER → ASSEMBLY → POST → PUBLISH`. STUDIO and
+ASSISTANT are front doors: they talk to Control and never reach into a department
+directly.
+
+### 3.1 Things that are easy to get wrong
+
+- **`app/` is live and load-bearing.** It is the MoneyPrinterTurbo core: TTS,
+  subtitles, BGM, concat. `automation/runner.py:353` invokes root
+  `cli.py --batch-file`, which drives it. Do not delete it. Only its Streamlit UI
+  (`webui/`) was dead, and that is already gone.
+- **`flowkit` means exactly one thing: the RENDER server.** The client library
+  that drives it is `shorts_content_engine/src/render_client/`. It used to be
+  `src/flowkit/`, and two different things with one name is what made the
+  reference-image bug take hours to find. Class names (`FlowKitClient`,
+  `FlowKit*Create`) deliberately stayed — they name the protocol.
+- **`agentMemory/` is a vendored VS Code extension.** It has nothing to do with
+  the assistant. The assistant's real memory is `flowkit/agent_data/`.
+
+### 3.2 Control — one operations catalog, two front doors
+
+`flowkit/agent/operations/`. **21 operations across all 8 departments**, each
+declared once:
+
+```python
+@operation(name="queue_status", department="render", risk="read")
+async def queue_status(project_id: str | None = None) -> dict: ...
+```
+
+The chatbot's tool specs, the prompt's department grouping, and the risk gate are
+all derived from that declaration. The registry **rejects a duplicate name** — a
+duplicate would silently shadow, which is the drift bug this exists to prevent.
+
+Why it exists: an operation used to be implemented twice (a REST route and a
+hand-written chatbot tool) and they drifted **twice in one week** — the `tool`
+SSE frame shape, and `_char_matches` vs `_matches`.
+
+| `risk` | Behaviour |
+|---|---|
+| `read` | Always allowed |
+| `write` | Allowed (memory, ledger, a scrub) |
+| `spend` | **Refused unless `AGENT_ALLOW_SPEND=1`** |
+| `destructive` | Refused unless spend is on **and** a confirm token is present |
+
+`run_command` is `write`, **not** `destructive`, deliberately: the only confirm
+token available is one the *model* sets, so requiring it would be a speed bump
+that looks like a safety check while checking nothing. Its real controls are the
+pinned cwd, the pattern denylist and the output cap.
+
+**Known remaining duplication:** REST routes still call the service layer
+directly rather than going through the catalog. They call the **same services**,
+so behaviour cannot differ, but the route layer is not yet generated. That is the
+honest status of the "two front doors" property: it holds for the chatbot, not
+yet for HTTP.
+
+---
+
+## 4. What is DONE (all verified, not assumed)
+
+### Pipeline correctness
+- **Missing reference-image producer fixed.** 6 of 13 failed requests were
+  `GENERATE_IMAGE` dying with `Waiting for reference images`. Root cause: the
+  *producer* was missing — nothing ever queued `GENERATE_CHARACTER_IMAGE`;
+  `to_character_batch_requests` was dead code. Fixed in the SCE orchestrator
+  (idempotent, skips entities that already have a `media_id`). Proven live: the
+  project went 6 failed/0 done → **9/9 completed**.
+  > Gotcha: `poll_batch_resilient(orientation=None)`. Character requests have NULL
+  > orientation; the default `"VERTICAL"` filter matches nothing and times out.
+- **`GET /api/characters` silently ignored `project_id`.** FastAPI drops
+  undeclared query params with no warning, so it returned every character in the
+  DB. Now declared and filtered.
+- **Reference-image failures fail fast** instead of retrying forever
+  (`_prerequisites_met` defers only while a reference request is genuinely
+  in-flight).
+
+### The conditioning report — the honest version
+- Abi chose **warn** over hard-fail: a scene naming characters nothing links to
+  still generates. The first version of the report inferred "was this image
+  conditioned?" from the project's *current* links — which **lies** in the case
+  that matters, because an image generated while unlinked is un-conditioned
+  *forever*.
+- Fixed properly: `scene.conditioned_with` is written **at generation time**
+  (`result_handler._conditioning_record`). Three states, all meaningful:
+  `["arthur"]` = conditioned on exactly these · `[]` = generated with no
+  conditioning (proven) · `NULL` = unknown, predates the column.
+- **Deliberately not backfilled** — guessing would destroy the only honest signal.
+- `unverified` (NULL) is a gap in *evidence*, not a problem, so it does **not**
+  make a project `clean: false` — otherwise every pre-existing project looks
+  broken and the report gets ignored.
+- Live: `farmer_and_rusty` clean; `Stickman Legends` correctly flagged.
+
+### The chatbot
+- **Tool loop** (`services/chat_agent.py`): prompt-level protocol
+  (`⟦tool:name {json}⟧`) because the free `muse-spark-*` models have no reliable
+  native function calling. Also accepts `[[…]]` / `<<…>>` so a bracket slip is
+  not fatal. Bounded rounds, balanced-brace JSON scanning (**never a regex** — a
+  non-greedy `\{.*?\}` stops at the first inner brace and mangles nested args),
+  streaming holdback so markers never flash on screen, malformed calls fed back
+  to the model instead of dropped.
+- **It can now run the pipeline**, not just inspect it: `direct_episode`,
+  `storyboard`, `continuity_status`, `generate_episode`, `assemble_episode`,
+  `scrub_video`, `publish_episode`, `publication_status`, `list_topics`,
+  `run_batch`, `read_logs`. Each is a thin wrapper over an existing CLI verb — no
+  new pipeline logic.
+- **Risk gate visible end-to-end.** Frames carry `risk`; refusals carry
+  `refused: true`; the UI badges `SPENDS MONEY` / `PUBLIC · IRREVERSIBLE` and
+  renders a refusal as a calm *"Not run — …"* card, not a red error.
+  `GET /api/agent/capabilities` + a Studio mode strip state whether the assistant
+  is inspection-only.
+- **TinyFish web search is live** (`GET https://api.search.tinyfish.ai`,
+  `X-API-Key`, free tier). Verified end-to-end through the tool loop.
+- **Conversations auto-save** server-side (debounced 1.2s) to
+  `flowkit/agent_data/conversations/`, plus long-term memory and a Memory drawer.
+- **Terminal tab** is a real `cmd.exe` PTY (`pywinpty`), not a chat persona.
+
+### Architecture cleanup (all six phases)
+- `docs/ARCHITECTURE.md` written — every claim checked against the tree.
+- `src/flowkit/` → `src/render_client/`, 16 files + the test file renamed.
+  **Acceptance: SCE stayed at 169 passed.**
+- Streamlit `webui/` (7,620 lines) deleted via `git rm` (recoverable). Its two
+  apparent dependants were both false positives — a comment and a string literal.
+- `tools/check_boundaries.py` — 5 rules, each mapping to a bug that happened.
+  **Verified it is not a rubber stamp** (injected a rogue `@operation`, it fired).
+- **The 9 dead `test_result_handler.py` tests now run.** They errored on
+  `fixture 'mocker' not found` (`pytest-mock` not installed) and had never
+  actually executed. Rewritten with `monkeypatch` — no new dependency — plus 4
+  new tests for the conditioning write path. Errors went 9 → **0**.
+
+---
+
+## 5. Where the pipeline actually stands
+
+- `farmer_and_rusty` (Ep 1) — **9/9 requests completed**, 6 scenes with
+  `vertical_image_status: COMPLETED` and image URLs. Clean on the conditioning
+  report.
+- `Stickman Legends: Neon Overdrive` — 6 scenes generated **without** reference
+  conditioning. Needs the fix in §7.2.
+- **Video generation is stopped** at Abi's request: 0 pending, 0 processing. The
+  6 `GENERATE_VIDEO` failures are `PUBLIC_ERROR_MODEL_ACCESS_DENIED` — the Google
+  account lacks Veo access. **Not retryable; no code path works around it.** This
+  is the only genuinely blocked item and it is blocked on an account, not code.
+- One polling timeout remains unexplained: *"Extension manifest must request
+  permission to access the respective host."* Needs the live Flow tab URL to pin
+  down which host. **Not guessed** — do not invent a cause.
+
+---
+
+## 6. The 14 remaining test failures — all pre-existing, none from this work
+
+| Count | File | Cause |
+|---|---|---|
+| 13 | `test_video_reviewer.py` | contact-sheet chunking expectations |
+| 1 | `test_cli_providers.py` | prompt-branching wording |
+
+They are byte-identical to the baseline before any of this session's work. They
+are real bugs in those areas, not flakes — but they are in code paths the
+pipeline does not currently use (video review, CLI provider prompts). Fixing them
+is a good next task if nothing else is pressing.
+
+---
+
+## 7. OPEN — what is left, and exactly what to do
+
+### 7.1 Decisions only Abi can make
+
+**(a) `video_model*` — three untracked side-projects.** Not referenced by any
+live code. **Not git-tracked, so deletion is unrecoverable.**
+
+| Path | What it actually is |
+|---|---|
+| `video_model/` | A different project — `textanim`, a Vite/TS web app (29 files) |
+| `video_model_dev/` | **Stickman Universe**, smaller copy (167 files) |
+| `video_model_quality/` | **Stickman Universe**, larger copy (517 files) |
+
+`_dev` and `_quality` have **identical `PROJECT.md` headers** — two copies of one
+product ("text-to-stickman-video product"). Abi said "delete useless"; the
+investigation showed they are not useless, so nothing was deleted.
+
+**Recommendation:** keep `video_model_quality/`, delete `video_model_dev/`, move
+survivors to `side-projects/`. **Ask before acting** — "Stickman Universe" may be
+the engine behind the `Stickman Legends` FlowKit project, which would make it
+wanted.
+
+**(b) The 3 orphan character rows.** In `flow_agent.db`, three name pairs exist.
+In each, one row has a reference image and is referenced by a request; the other
+has neither:
+
+| Keep | Delete (orphan) |
+|---|---|
+| `4bd40ee7` Red Blade | `f705dc78` Red Blade |
+| `d25e86bf` Blue Strike | `9e1dbe52` Blue Strike |
+| `14494da0` The Neon Grid | `ec53e48c` The Neon Grid |
+
+**Neither copy is linked to the project.** Destructive — list it and confirm
+first.
+
+**(c) Rotate leaked credentials.** Untouched by design: the OpenCode key in git
+history `f207698`, and two GitHub PATs in `FamilyTree/.git/config` and
+`Study_Guide/.git/config`.
+
+### 7.2 The Stickman Legends fix — needs a spend go-ahead
+
+1. Link the 3 characters that **have** a `media_id` to the project
+   (`POST /api/projects/<id>/characters/<char_id>`).
+2. **Regenerate the 6 stills** — linking alone does **not** retroactively
+   condition an existing image. This is the whole point of §4.
+3. The conditioning report goes clean once the new images record their
+   conditioning.
+
+Step 2 costs image-generation calls, so it has **not** been done. Enable with
+`AGENT_ALLOW_SPEND=1` (or the SCE CLI) when Abi says go.
+
+### 7.3 Code work that needs no decision
+
+- **Generate the REST routes from the operations catalog** (§3.2). Closes the
+  last real duplication. ~20 route modules; do it incrementally, keeping the
+  existing routes working as thin wrappers.
+- **A UI-driven approval** for `destructive` operations — a button that mints the
+  confirm token. Today the model is told to ask the user first, which is honest
+  but not equivalent.
+- **Streaming reconnect.** If the SSE stream drops mid-reply the partial answer
+  is kept and an error shown, but the turn is not resumed.
+- **Copy-output button on tool cards** (markdown code blocks already have one).
+- **Accessibility audit** — untested, and it matters before anyone else uses this.
+- **`agentMemory/`** — rename so it cannot be confused with the assistant's
+  memory. **`opencode_endpoint/`** — still the reference, or superseded by
+  `flowkit/agent/services/opencode_models.py`? **Root `main.py`** — appears unused
+  by the pipeline (`automation/` calls `cli.py`, not the HTTP API). Confirm before
+  removing.
+- **Light theme** — the dashboard is hardcoded `<html class="dark">`.
+
+---
+
+## 8. Environment gotchas — read before debugging anything
+
+- **`curl` needs `--noproxy '*'`.** A corporate proxy answers some paths and
+  404s others, which looks exactly like a broken service.
+- **The server cannot start inside the sandbox** (`WinError 10013`,
+  `socket.socketpair()` blocked). Run it unsandboxed.
+- **`Path.unlink()` can raise a non-`OSError`** here. `.workbuddy-ai/` is
+  protected project data and this environment's safe-delete shim refuses
+  deletions inside it. Never wrap a deletion in `except OSError` when a request
+  handler calls it — catch broadly, and answer 404 (missing) / 409 (refused)
+  rather than a blanket 200 with `deleted: false`. **Never store user-deletable
+  content under `.workbuddy-ai/`.**
+- **`python -m agent.main` double-imports the module** (once as `__main__`, once
+  as `agent.main`), which used to duplicate every log line. Guarded by
+  `_attach_log_bus_handler()`. Do **not** "simplify" it to a module-level flag —
+  the two imports have separate globals.
+- **`.env` changes need an agent restart.** `agent/config.py::_load_env_files()`
+  runs at import time and an already-set env var wins over the file. Do not read
+  "still not configured" as a broken key.
+- **Secrets belong in `.env`, never `.env.example`.** `.env.example` is a tracked,
+  committed template. A live `TINYFISH_API_KEY` was pasted there once; it had not
+  been committed, so it was moved before it leaked. Check
+  `git show HEAD:.env.example` if you suspect one has.
+- **`npm install` cannot repair an interrupted extraction** — arborist validates
+  version + tarball hash, never files on disk. Use
+  `tools/repair_npm_package.py`.
+- **`pytest-mock` is not installed** in the flowkit venv. Use `monkeypatch`.
+- **A DB-backed test can hang.** Opening the shared SQLite file while the agent
+  holds the lock blocks. Prefer non-DB operations in tests that are not about the
+  DB.
+- **`flowkit/` and `shorts_content_engine/` are untracked** (vendored) — `git
+  status` will not show changes inside them.
+- **`git status` currently shows 18 staged deletions** — the `webui/` removal.
+  Recover with `git checkout HEAD -- webui webui.bat webui.sh`.
+
+---
+
+## 9. Doc map for a cold start
+
+1. **This file** — state, open items, gotchas.
+2. **`docs/ARCHITECTURE.md`** — the map. Departments, dependency rule, every
+   directory's purpose.
+3. **`docs/IMPLEMENTATION.md`** — the six-phase plan, all phases complete, with
+   the reasoning behind each decision.
+4. **`docs/CHAT_UI_REVIEW.md`** — the chat UI audit and the library decision
+   (adopt nothing; the hard parts are already built).
+5. **`flowkit/agent/services/chat_agent.py`** module docstring — read before
+   touching the tool marker syntax.
+6. **`flowkit/agent/operations/registry.py`** module docstring — read before
+   adding an operation.
+
+Project memory (session-by-session reasoning) is in
+`AutoShorts/.workbuddy-ai/memory/` — `2026-09-13.md`, `2026-09-14.md`,
+`2026-09-15.md`, and `MEMORY.md` for durable conventions. It records *why*
+decisions were made, including the ones that were wrong first.
+
+---
+
+## 10. The one thing not to do
+
+**Do not "fix" the warn-and-continue decision by throwing on an unlinked
+entity.** It is a deliberate choice: hard-failing would break any scene whose
+characters were legitimately renamed or removed. Warn, and report.
+
+And relatedly: **do not replace `conditioned_with` with a check against the
+current project links.** That is the bug that was already fixed once — linking a
+character afterwards would make an un-conditioned image look fine.

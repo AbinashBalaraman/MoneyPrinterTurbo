@@ -1,0 +1,367 @@
+{
+  "series_id": "farmer_and_rusty",
+  "episode_num": 1,
+  "title": "The Whispering Furrow",
+  "target_duration": 45.0,
+  "actual_duration": 45.0,
+  "style": "cinematic_photorealistic",
+  "cliffhanger": "The ground fractures open with a deep rumble, and blue subterranean vapor rises from the chasm as Rusty growls.",
+  "next_episode_hook": "Will Arthur and Rusty escape the collapsing fissure before the guardian awakens?",
+  "character_visuals": {
+    "Arthur": "Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots",
+    "Rusty": "Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck",
+    "Dusty Creek Farm": "Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky"
+  },
+  "character_photos": {
+    "Arthur": [
+      "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\Charectors\\Arthur\\image_20260913122608.webp",
+      "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\Charectors\\Arthur\\image_20260913122611.webp"
+    ],
+    "Rusty": [
+      "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\Charectors\\Rusty\\image_20260913122621.webp",
+      "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\Charectors\\Rusty\\image_20260913122624.webp"
+    ]
+  },
+  "scenes": [
+    {
+      "scene_index": 0,
+      "time_start": 0.0,
+      "time_end": 6.0,
+      "duration": 6.0,
+      "phase": "hook",
+      "narration": "The well was bone dry, and Arthur had only one cup of water left.",
+      "dialogue_speaker": null,
+      "dialogue_text": null,
+      "dialogue_emotion": null,
+      "action_prompt": "Arthur stares down into an empty cracked stone well with a wooden bucket while Rusty suddenly sniffs the arid wind with perked ears.",
+      "video_prompt": "0-3s: Low angle push-in as [Arthur] tips an empty wooden bucket over the stone well. 3-6s: [Rusty] abruptly snaps his head toward the dry field, sniffing intensely.",
+      "camera_directive": "Low angle dynamic push-in transitioning to a rapid snap focus",
+      "bound_characters": [
+        "Arthur",
+        "Rusty"
+      ],
+      "stills": [
+        {
+          "image_index": 0,
+          "label": "S1-IMG1",
+          "time_start": 0.0,
+          "time_end": 3.0,
+          "shot_type": "Wide establishing",
+          "focus": "Opening: Arthur stares down into an empty cracked stone well with a wooden bucket while Rusty suddenly sniffs the arid wind with perked ears. (opening composition, where everyone is)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Wide establishing shot, Scene 1. Action: Opening: Arthur stares down into an empty cracked stone well with a wooden bucket while Rusty suddenly sniffs the arid wind with perked ears. (opening composition, where everyone is). Characters: Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots) and Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: harsh blazing golden-hour sunlight, deep cracked-earth shadows. Camera: Low angle dynamic push-in transitioning to a rapid snap focus, shallow depth of field on subjects. Mood: urgent, drought-stricken tension, immediate curiosity. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 3.0,
+          "transition": "cross-dissolve",
+          "motion_hint": "Slow push-in (100% -> 108%) over hold duration"
+        },
+        {
+          "image_index": 1,
+          "label": "S1-IMG2",
+          "time_start": 3.0,
+          "time_end": 6.0,
+          "shot_type": "Close emotional beat",
+          "focus": "Payoff: Arthur stares down into an empty cracked stone well with a wooden bucket while Rusty suddenly sniffs the arid wind with perked ears — faces/hands reacting, leading into next cut. (reaction detail, payoff into next scene)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Close emotional beat shot, Scene 1. Action: Payoff: Arthur stares down into an empty cracked stone well with a wooden bucket while Rusty suddenly sniffs the arid wind with perked ears — faces/hands reacting, leading into next cut. (reaction detail, payoff into next scene). Characters: Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots) and Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: harsh blazing golden-hour sunlight, deep cracked-earth shadows. Camera: Low angle dynamic push-in transitioning to a rapid snap focus, shallow depth of field on subjects. Mood: urgent, drought-stricken tension, immediate curiosity. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 3.0,
+          "transition": "cross-dissolve",
+          "motion_hint": "Static hold with 103% micro-zoom into eyes/object"
+        }
+      ]
+    },
+    {
+      "scene_index": 1,
+      "time_start": 6.0,
+      "time_end": 13.0,
+      "duration": 7.0,
+      "phase": "rising_tension",
+      "narration": "Rusty suddenly darted into the barren field, tearing at the baked earth like his life depended on it.",
+      "dialogue_speaker": null,
+      "dialogue_text": null,
+      "dialogue_emotion": null,
+      "action_prompt": "Rusty frantically digs into the dry furrow with both paws, dirt flying into the air, as Arthur hurries across the cracked field.",
+      "video_prompt": "0-3s: Rapid ground-level tracking shot following [Rusty] sprint across dry ground. 3-7s: [Rusty] vigorously claws into the soil as [Arthur] hobbles into frame.",
+      "camera_directive": "Ground-level tracking dolly following dog movement",
+      "bound_characters": [
+        "Rusty",
+        "Arthur"
+      ],
+      "stills": [
+        {
+          "image_index": 0,
+          "label": "S2-IMG1",
+          "time_start": 6.0,
+          "time_end": 8.33,
+          "shot_type": "Wide establishing",
+          "focus": "Opening: Rusty frantically digs into the dry furrow with both paws, dirt flying into the air, as Arthur hurries across the cracked field. (opening composition, spatial context)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Wide establishing shot, Scene 2. Action: Opening: Rusty frantically digs into the dry furrow with both paws, dirt flying into the air, as Arthur hurries across the cracked field. (opening composition, spatial context). Characters: Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck) and Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: bright dusty daylight with flying dust motes. Camera: Ground-level tracking dolly following dog movement, shallow depth of field on subjects. Mood: mounting urgency, restless energy. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.33,
+          "transition": "cross-dissolve",
+          "motion_hint": "Slow push-in (100% -> 108%) over hold duration"
+        },
+        {
+          "image_index": 1,
+          "label": "S2-IMG2",
+          "time_start": 8.33,
+          "time_end": 10.67,
+          "shot_type": "Medium action",
+          "focus": "Peak action: 0-3s: Rapid ground-level tracking shot following [Rusty] sprint across dry ground. 3-7s: [Rusty] vigorously claws into the soil as [Arthur] hobbles into frame. (core physical action peak)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Medium action shot, Scene 2. Action: Peak action: 0-3s: Rapid ground-level tracking shot following [Rusty] sprint across dry ground. 3-7s: [Rusty] vigorously claws into the soil as [Arthur] hobbles into frame. (core physical action peak). Characters: Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck) and Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: bright dusty daylight with flying dust motes. Camera: Ground-level tracking dolly following dog movement, shallow depth of field on subjects. Mood: mounting urgency, restless energy. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.34,
+          "transition": "cross-dissolve",
+          "motion_hint": "Subtle left-to-right pan + 105% zoom (Ken Burns)"
+        },
+        {
+          "image_index": 2,
+          "label": "S2-IMG3",
+          "time_start": 10.67,
+          "time_end": 13.0,
+          "shot_type": "Macro close-up / reaction",
+          "focus": "Detail payoff: Rusty frantically digs into the dry furrow with both paws, dirt flying into the air, as Arthur hurries across the cracked field — tight on eyes, hands, or glowing object. (emotional payoff detail, eyes/hands/light)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Macro close-up / reaction shot, Scene 2. Action: Detail payoff: Rusty frantically digs into the dry furrow with both paws, dirt flying into the air, as Arthur hurries across the cracked field — tight on eyes, hands, or glowing object. (emotional payoff detail, eyes/hands/light). Characters: Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck) and Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: bright dusty daylight with flying dust motes. Camera: Ground-level tracking dolly following dog movement, shallow depth of field on subjects. Mood: mounting urgency, restless energy. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.33,
+          "transition": "cross-dissolve",
+          "motion_hint": "Static hold with 103% micro-zoom into eyes/object"
+        }
+      ]
+    },
+    {
+      "scene_index": 2,
+      "time_start": 13.0,
+      "time_end": 21.0,
+      "duration": 8.0,
+      "phase": "complication",
+      "narration": "Deep beneath the parched dust lay a crystalline seed, pulsing with a faint emerald glow.",
+      "dialogue_speaker": "Arthur",
+      "dialogue_text": "What did you find there, boy?",
+      "dialogue_emotion": "awed gentle whisper",
+      "action_prompt": "Arthur kneels beside Rusty, carefully brushing aside dirt clods to reveal an ancient glowing seed pod radiating soft green light.",
+      "video_prompt": "0-4s: Close-up over-the-shoulder shot as [Arthur] gently wipes dry soil away. 4-8s: The exposed seed pulses with emerald light, reflecting in [Rusty]'s wide eyes.",
+      "camera_directive": "Over-the-shoulder slow descending crane shot to macro close-up",
+      "bound_characters": [
+        "Arthur",
+        "Rusty"
+      ],
+      "stills": [
+        {
+          "image_index": 0,
+          "label": "S3-IMG1",
+          "time_start": 13.0,
+          "time_end": 15.67,
+          "shot_type": "Wide establishing",
+          "focus": "Opening: Arthur kneels beside Rusty, carefully brushing aside dirt clods to reveal an ancient glowing seed pod radiating soft green light. (opening composition, spatial context)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Wide establishing shot, Scene 3. Action: Opening: Arthur kneels beside Rusty, carefully brushing aside dirt clods to reveal an ancient glowing seed pod radiating soft green light. (opening composition, spatial context). Characters: Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots) and Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: soft emerald glow mixing with warm sunlight on faces. Camera: Over-the-shoulder slow descending crane shot to macro close-up, shallow depth of field on subjects. Mood: awe mixed with dread, stakes escalating. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.67,
+          "transition": "cross-dissolve",
+          "motion_hint": "Slow push-in (100% -> 108%) over hold duration"
+        },
+        {
+          "image_index": 1,
+          "label": "S3-IMG2",
+          "time_start": 15.67,
+          "time_end": 18.33,
+          "shot_type": "Medium action",
+          "focus": "Peak action: 0-4s: Close-up over-the-shoulder shot as [Arthur] gently wipes dry soil away. 4-8s: The exposed seed pulses with emerald light, reflecting in [Rusty]'s wide eyes. (core physical action peak)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Medium action shot, Scene 3. Action: Peak action: 0-4s: Close-up over-the-shoulder shot as [Arthur] gently wipes dry soil away. 4-8s: The exposed seed pulses with emerald light, reflecting in [Rusty]'s wide eyes. (core physical action peak). Characters: Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots) and Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: soft emerald glow mixing with warm sunlight on faces. Camera: Over-the-shoulder slow descending crane shot to macro close-up, shallow depth of field on subjects. Mood: awe mixed with dread, stakes escalating. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.66,
+          "transition": "cross-dissolve",
+          "motion_hint": "Subtle left-to-right pan + 105% zoom (Ken Burns)"
+        },
+        {
+          "image_index": 2,
+          "label": "S3-IMG3",
+          "time_start": 18.33,
+          "time_end": 21.0,
+          "shot_type": "Macro close-up / reaction",
+          "focus": "Detail payoff: Arthur kneels beside Rusty, carefully brushing aside dirt clods to reveal an ancient glowing seed pod radiating soft green light — tight on eyes, hands, or glowing object. (emotional payoff detail, eyes/hands/light) Arthur says: 'What did you find there, boy?' (awed gentle whisper).",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Macro close-up / reaction shot, Scene 3. Action: Detail payoff: Arthur kneels beside Rusty, carefully brushing aside dirt clods to reveal an ancient glowing seed pod radiating soft green light — tight on eyes, hands, or glowing object. (emotional payoff detail, eyes/hands/light) Arthur says: 'What did you find there, boy?' (awed gentle whisper).. Characters: Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots) and Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: soft emerald glow mixing with warm sunlight on faces. Camera: Over-the-shoulder slow descending crane shot to macro close-up, shallow depth of field on subjects. Mood: awe mixed with dread, stakes escalating. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.67,
+          "transition": "cross-dissolve",
+          "motion_hint": "Static hold with 103% micro-zoom into eyes/object"
+        }
+      ]
+    },
+    {
+      "scene_index": 3,
+      "time_start": 21.0,
+      "time_end": 29.0,
+      "duration": 8.0,
+      "phase": "complication",
+      "narration": "With their pantry empty and crops withered, Arthur uncapped his last canteen and made a desperate gamble.",
+      "dialogue_speaker": null,
+      "dialogue_text": null,
+      "dialogue_emotion": null,
+      "action_prompt": "Arthur holds his dented tin canteen over the glowing seed, tilting it slowly as the final drops of crystal water fall.",
+      "video_prompt": "0-4s: Medium shot of [Arthur] unthreading the metal canteen cap with trembling hands. 4-8s: Slow motion macro shot of water droplets splashing onto the luminous seed.",
+      "camera_directive": "Cinematic slow dolly-in with shallow depth of field",
+      "bound_characters": [
+        "Arthur"
+      ],
+      "stills": [
+        {
+          "image_index": 0,
+          "label": "S4-IMG1",
+          "time_start": 21.0,
+          "time_end": 23.67,
+          "shot_type": "Wide establishing",
+          "focus": "Opening: Arthur holds his dented tin canteen over the glowing seed, tilting it slowly as the final drops of crystal water fall. (opening composition, spatial context)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Wide establishing shot, Scene 4. Action: Opening: Arthur holds his dented tin canteen over the glowing seed, tilting it slowly as the final drops of crystal water fall. (opening composition, spatial context). Characters: Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: soft emerald glow mixing with warm sunlight on faces. Camera: Cinematic slow dolly-in with shallow depth of field, shallow depth of field on subjects. Mood: awe mixed with dread, stakes escalating. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.67,
+          "transition": "cross-dissolve",
+          "motion_hint": "Slow push-in (100% -> 108%) over hold duration"
+        },
+        {
+          "image_index": 1,
+          "label": "S4-IMG2",
+          "time_start": 23.67,
+          "time_end": 26.33,
+          "shot_type": "Medium action",
+          "focus": "Peak action: 0-4s: Medium shot of [Arthur] unthreading the metal canteen cap with trembling hands. 4-8s: Slow motion macro shot of water droplets splashing onto the luminous seed. (core physical action peak)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Medium action shot, Scene 4. Action: Peak action: 0-4s: Medium shot of [Arthur] unthreading the metal canteen cap with trembling hands. 4-8s: Slow motion macro shot of water droplets splashing onto the luminous seed. (core physical action peak). Characters: Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: soft emerald glow mixing with warm sunlight on faces. Camera: Cinematic slow dolly-in with shallow depth of field, shallow depth of field on subjects. Mood: awe mixed with dread, stakes escalating. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.66,
+          "transition": "cross-dissolve",
+          "motion_hint": "Subtle left-to-right pan + 105% zoom (Ken Burns)"
+        },
+        {
+          "image_index": 2,
+          "label": "S4-IMG3",
+          "time_start": 26.33,
+          "time_end": 29.0,
+          "shot_type": "Macro close-up / reaction",
+          "focus": "Detail payoff: Arthur holds his dented tin canteen over the glowing seed, tilting it slowly as the final drops of crystal water fall — tight on eyes, hands, or glowing object. (emotional payoff detail, eyes/hands/light)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Macro close-up / reaction shot, Scene 4. Action: Detail payoff: Arthur holds his dented tin canteen over the glowing seed, tilting it slowly as the final drops of crystal water fall — tight on eyes, hands, or glowing object. (emotional payoff detail, eyes/hands/light). Characters: Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: soft emerald glow mixing with warm sunlight on faces. Camera: Cinematic slow dolly-in with shallow depth of field, shallow depth of field on subjects. Mood: awe mixed with dread, stakes escalating. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.67,
+          "transition": "cross-dissolve",
+          "motion_hint": "Static hold with 103% micro-zoom into eyes/object"
+        }
+      ]
+    },
+    {
+      "scene_index": 4,
+      "time_start": 29.0,
+      "time_end": 37.0,
+      "duration": 8.0,
+      "phase": "climax_twist",
+      "narration": "The soil exploded. Massive jade vines shot skyward, unfurling radiant golden blossoms in seconds!",
+      "dialogue_speaker": null,
+      "dialogue_text": null,
+      "dialogue_emotion": null,
+      "action_prompt": "Vibrant green vines violently erupt from the ground, spiraling upwards toward the sky as Arthur and Rusty shield their eyes in amazement.",
+      "video_prompt": "0-4s: Wide dynamic low-angle crane ascending rapidly as massive emerald vines surge from the earth. 4-8s: Golden blossoms burst open overhead, showering luminescent pollen.",
+      "camera_directive": "Rapid ascending vertical crane tracking vine growth",
+      "bound_characters": [
+        "Arthur",
+        "Rusty"
+      ],
+      "stills": [
+        {
+          "image_index": 0,
+          "label": "S5-IMG1",
+          "time_start": 29.0,
+          "time_end": 31.67,
+          "shot_type": "Wide establishing",
+          "focus": "Opening: Vibrant green vines violently erupt from the ground, spiraling upwards toward the sky as Arthur and Rusty shield their eyes in amazement. (opening composition, spatial context)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Wide establishing shot, Scene 5. Action: Opening: Vibrant green vines violently erupt from the ground, spiraling upwards toward the sky as Arthur and Rusty shield their eyes in amazement. (opening composition, spatial context). Characters: Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots) and Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: radiant golden-green magical bloom light bursting overhead. Camera: Rapid ascending vertical crane tracking vine growth, shallow depth of field on subjects. Mood: peak wonder and explosive energy. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.67,
+          "transition": "cross-dissolve",
+          "motion_hint": "Slow push-in (100% -> 108%) over hold duration"
+        },
+        {
+          "image_index": 1,
+          "label": "S5-IMG2",
+          "time_start": 31.67,
+          "time_end": 34.33,
+          "shot_type": "Medium action",
+          "focus": "Peak action: 0-4s: Wide dynamic low-angle crane ascending rapidly as massive emerald vines surge from the earth. 4-8s: Golden blossoms burst open overhead, showering luminescent pollen. (core physical action peak)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Medium action shot, Scene 5. Action: Peak action: 0-4s: Wide dynamic low-angle crane ascending rapidly as massive emerald vines surge from the earth. 4-8s: Golden blossoms burst open overhead, showering luminescent pollen. (core physical action peak). Characters: Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots) and Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: radiant golden-green magical bloom light bursting overhead. Camera: Rapid ascending vertical crane tracking vine growth, shallow depth of field on subjects. Mood: peak wonder and explosive energy. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.66,
+          "transition": "cross-dissolve",
+          "motion_hint": "Subtle left-to-right pan + 105% zoom (Ken Burns)"
+        },
+        {
+          "image_index": 2,
+          "label": "S5-IMG3",
+          "time_start": 34.33,
+          "time_end": 37.0,
+          "shot_type": "Macro close-up / reaction",
+          "focus": "Detail payoff: Vibrant green vines violently erupt from the ground, spiraling upwards toward the sky as Arthur and Rusty shield their eyes in amazement — tight on eyes, hands, or glowing object. (emotional payoff detail, eyes/hands/light)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Macro close-up / reaction shot, Scene 5. Action: Detail payoff: Vibrant green vines violently erupt from the ground, spiraling upwards toward the sky as Arthur and Rusty shield their eyes in amazement — tight on eyes, hands, or glowing object. (emotional payoff detail, eyes/hands/light). Characters: Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots) and Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: radiant golden-green magical bloom light bursting overhead. Camera: Rapid ascending vertical crane tracking vine growth, shallow depth of field on subjects. Mood: peak wonder and explosive energy. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.67,
+          "transition": "cross-dissolve",
+          "motion_hint": "Static hold with 103% micro-zoom into eyes/object"
+        }
+      ]
+    },
+    {
+      "scene_index": 5,
+      "time_start": 37.0,
+      "time_end": 45.0,
+      "duration": 8.0,
+      "phase": "cliffhanger_loop",
+      "narration": "Before Arthur could celebrate, the earth trembled—and a deep chasm cracked open beneath the roots.",
+      "dialogue_speaker": null,
+      "dialogue_text": null,
+      "dialogue_emotion": null,
+      "action_prompt": "The ground fractures open with an ominous subterranean glow while Rusty steps in front of Arthur, growling fiercely into the abyss.",
+      "video_prompt": "0-4s: Ground camera shakes as a glowing fissure rips through the soil. 4-8s: [Rusty] bares his teeth defensively in front of [Arthur] as strange blue vapor rises from below.",
+      "camera_directive": "Dutch angle ground-level tilt with camera shake into black",
+      "bound_characters": [
+        "Rusty",
+        "Arthur"
+      ],
+      "stills": [
+        {
+          "image_index": 0,
+          "label": "S6-IMG1",
+          "time_start": 37.0,
+          "time_end": 39.67,
+          "shot_type": "Wide establishing",
+          "focus": "Opening: The ground fractures open with an ominous subterranean glow while Rusty steps in front of Arthur, growling fiercely into the abyss. (opening composition, spatial context)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Wide establishing shot, Scene 6. Action: Opening: The ground fractures open with an ominous subterranean glow while Rusty steps in front of Arthur, growling fiercely into the abyss. (opening composition, spatial context). Characters: Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck) and Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: eerie blue subterranean glow cutting through dust. Camera: Dutch angle ground-level tilt with camera shake into black, shallow depth of field on subjects. Mood: ominous dread, unresolved peril. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.67,
+          "transition": "cross-dissolve",
+          "motion_hint": "Slow push-in (100% -> 108%) over hold duration"
+        },
+        {
+          "image_index": 1,
+          "label": "S6-IMG2",
+          "time_start": 39.67,
+          "time_end": 42.33,
+          "shot_type": "Medium action",
+          "focus": "Peak action: 0-4s: Ground camera shakes as a glowing fissure rips through the soil. 4-8s: [Rusty] bares his teeth defensively in front of [Arthur] as strange blue vapor rises from below. (core physical action peak)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Medium action shot, Scene 6. Action: Peak action: 0-4s: Ground camera shakes as a glowing fissure rips through the soil. 4-8s: [Rusty] bares his teeth defensively in front of [Arthur] as strange blue vapor rises from below. (core physical action peak). Characters: Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck) and Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: eerie blue subterranean glow cutting through dust. Camera: Dutch angle ground-level tilt with camera shake into black, shallow depth of field on subjects. Mood: ominous dread, unresolved peril. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.66,
+          "transition": "cross-dissolve",
+          "motion_hint": "Subtle left-to-right pan + 105% zoom (Ken Burns)"
+        },
+        {
+          "image_index": 2,
+          "label": "S6-IMG3",
+          "time_start": 42.33,
+          "time_end": 45.0,
+          "shot_type": "Macro close-up / reaction",
+          "focus": "Detail payoff: The ground fractures open with an ominous subterranean glow while Rusty steps in front of Arthur, growling fiercely into the abyss — tight on eyes, hands, or glowing object. (emotional payoff detail, eyes/hands/light)",
+          "image_prompt": "cinematic photorealistic film still, natural skin texture, high dynamic range, 8k detail, vertical 9:16 composition. Macro close-up / reaction shot, Scene 6. Action: Detail payoff: The ground fractures open with an ominous subterranean glow while Rusty steps in front of Arthur, growling fiercely into the abyss — tight on eyes, hands, or glowing object. (emotional payoff detail, eyes/hands/light). Characters: Rusty (Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck) and Arthur (Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots). Setting: Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky. Lighting: eerie blue subterranean glow cutting through dust. Camera: Dutch angle ground-level tilt with camera shake into black, shallow depth of field on subjects. Mood: ominous dread, unresolved peril. Consistent character likeness, no text, no watermark, no logo.",
+          "negative_prompt": "cartoon, anime, blurry, distorted face, extra limbs, deformed hands, text, watermark, logo, oversaturated, low-res",
+          "hold_seconds": 2.67,
+          "transition": "cross-dissolve",
+          "motion_hint": "Static hold with 103% micro-zoom into eyes/object"
+        }
+      ]
+    }
+  ]
+}

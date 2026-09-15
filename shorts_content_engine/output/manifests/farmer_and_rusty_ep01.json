@@ -1,0 +1,165 @@
+﻿{
+  "series_id": "farmer_and_rusty",
+  "episode_num": 1,
+  "title": "The Whispering Furrow",
+  "target_duration": 45.0,
+  "scenes": [
+    {
+      "scene_index": 0,
+      "time_start": 0.0,
+      "time_end": 6.0,
+      "narration": "The well was bone dry, and Arthur had only one cup of water left.",
+      "dialogue": null,
+      "action_prompt": "Arthur stares down into an empty cracked stone well with a wooden bucket while Rusty suddenly sniffs the arid wind with perked ears.",
+      "video_prompt": "0-3s: Low angle push-in as [Arthur] tips an empty wooden bucket over the stone well. 3-6s: [Rusty] abruptly snaps his head toward the dry field, sniffing intensely.",
+      "bound_characters": [
+        "Arthur",
+        "Rusty"
+      ],
+      "phase": "hook",
+      "camera_directive": "Low angle dynamic push-in transitioning to a rapid snap focus",
+      "word_count": 14,
+      "wpm": 140.0
+    },
+    {
+      "scene_index": 1,
+      "time_start": 6.0,
+      "time_end": 13.0,
+      "narration": "Rusty suddenly darted into the barren field, tearing at the baked earth like his life depended on it.",
+      "dialogue": null,
+      "action_prompt": "Rusty frantically digs into the dry furrow with both paws, dirt flying into the air, as Arthur hurries across the cracked field.",
+      "video_prompt": "0-3s: Rapid ground-level tracking shot following [Rusty] sprint across dry ground. 3-7s: [Rusty] vigorously claws into the soil as [Arthur] hobbles into frame.",
+      "bound_characters": [
+        "Rusty",
+        "Arthur"
+      ],
+      "phase": "rising_tension",
+      "camera_directive": "Ground-level tracking dolly following dog movement",
+      "word_count": 17,
+      "wpm": 145.7
+    },
+    {
+      "scene_index": 2,
+      "time_start": 13.0,
+      "time_end": 21.0,
+      "narration": "Deep beneath the parched dust lay a crystalline seed, pulsing with a faint emerald glow.",
+      "dialogue": {
+        "speaker": "Arthur",
+        "text": "What did you find there, boy?",
+        "emotion": "awed gentle whisper",
+        "word_count": 6,
+        "wpm": 0.0
+      },
+      "action_prompt": "Arthur kneels beside Rusty, carefully brushing aside dirt clods to reveal an ancient glowing seed pod radiating soft green light.",
+      "video_prompt": "0-4s: Close-up over-the-shoulder shot as [Arthur] gently wipes dry soil away. 4-8s: The exposed seed pulses with emerald light, reflecting in [Rusty]'s wide eyes.",
+      "bound_characters": [
+        "Arthur",
+        "Rusty"
+      ],
+      "phase": "complication",
+      "camera_directive": "Over-the-shoulder slow descending crane shot to macro close-up",
+      "word_count": 21,
+      "wpm": 157.5
+    },
+    {
+      "scene_index": 3,
+      "time_start": 21.0,
+      "time_end": 29.0,
+      "narration": "With their pantry empty and crops withered, Arthur uncapped his last canteen and made a desperate gamble.",
+      "dialogue": null,
+      "action_prompt": "Arthur holds his dented tin canteen over the glowing seed, tilting it slowly as the final drops of crystal water fall.",
+      "video_prompt": "0-4s: Medium shot of [Arthur] unthreading the metal canteen cap with trembling hands. 4-8s: Slow motion macro shot of water droplets splashing onto the luminous seed.",
+      "bound_characters": [
+        "Arthur"
+      ],
+      "phase": "complication",
+      "camera_directive": "Cinematic slow dolly-in with shallow depth of field",
+      "word_count": 18,
+      "wpm": 135.0
+    },
+    {
+      "scene_index": 4,
+      "time_start": 29.0,
+      "time_end": 37.0,
+      "narration": "The soil exploded. Massive jade vines shot skyward, unfurling radiant golden blossoms in seconds!",
+      "dialogue": null,
+      "action_prompt": "Vibrant green vines violently erupt from the ground, spiraling upwards toward the sky as Arthur and Rusty shield their eyes in amazement.",
+      "video_prompt": "0-4s: Wide dynamic low-angle crane ascending rapidly as massive emerald vines surge from the earth. 4-8s: Golden blossoms burst open overhead, showering luminescent pollen.",
+      "bound_characters": [
+        "Arthur",
+        "Rusty"
+      ],
+      "phase": "climax_twist",
+      "camera_directive": "Rapid ascending vertical crane tracking vine growth",
+      "word_count": 15,
+      "wpm": 112.5
+    },
+    {
+      "scene_index": 5,
+      "time_start": 37.0,
+      "time_end": 45.0,
+      "narration": "Before Arthur could celebrate, the earth trembled—and a deep chasm cracked open beneath the roots.",
+      "dialogue": null,
+      "action_prompt": "The ground fractures open with an ominous subterranean glow while Rusty steps in front of Arthur, growling fiercely into the abyss.",
+      "video_prompt": "0-4s: Ground camera shakes as a glowing fissure rips through the soil. 4-8s: [Rusty] bares his teeth defensively in front of [Arthur] as strange blue vapor rises from below.",
+      "bound_characters": [
+        "Rusty",
+        "Arthur"
+      ],
+      "phase": "cliffhanger_loop",
+      "camera_directive": "Dutch angle ground-level tilt with camera shake into black",
+      "word_count": 16,
+      "wpm": 120.0
+    }
+  ],
+  "character_profiles": [
+    {
+      "character_id": "char_arthur",
+      "name": "Arthur",
+      "entity_type": "character",
+      "visual_summary": "Elderly impoverished farmer with kind crinkling eyes, sun-weathered wrinkles, short silver beard, patched blue denim dungarees, faded red flannel shirt, worn rustic straw hat, sturdy scuffed work boots",
+      "personality": "Gentle, resilient, patient, deeply loyal to his companion",
+      "voice_profile": "Elderly warm gravelly grandfather voice, gentle and rustic",
+      "seed": null,
+      "reference_image_url": null,
+      "media_id": null,
+      "relationships": {},
+      "tags": []
+    },
+    {
+      "character_id": "char_rusty",
+      "name": "Rusty",
+      "entity_type": "creature",
+      "visual_summary": "Scruffy golden-brown terrier mix dog with one floppy ear, one perked ear, white fur patch on chest, big expressive golden-amber eyes, faded red bandanna tied neatly around neck",
+      "personality": "Curious, hyper-alert, brave protector, loyal shadow",
+      "voice_profile": "Expressive dog vocalizations, whines, barks, soft huffs",
+      "seed": null,
+      "reference_image_url": null,
+      "media_id": null,
+      "relationships": {},
+      "tags": []
+    },
+    {
+      "character_id": "loc_farmstead",
+      "name": "Dusty Creek Farm",
+      "entity_type": "location",
+      "visual_summary": "Dry sun-baked farmstead with cracked arid earth, weathered wooden split-rail fence, rustic leaning barn, creaking vintage windmill against a blazing golden-hour sky",
+      "personality": "Drought-stricken, desolate yet peaceful rustic pastoral landscape",
+      "voice_profile": "en-US-ChristopherNeural",
+      "seed": null,
+      "reference_image_url": null,
+      "media_id": null,
+      "relationships": {},
+      "tags": []
+    }
+  ],
+  "cliffhanger": "The ground fractures open with a deep rumble, and blue subterranean vapor rises from the chasm as Rusty growls.",
+  "next_episode_hook": "Will Arthur and Rusty escape the collapsing fissure before the guardian awakens?",
+  "season_num": 1,
+  "premise": "",
+  "actual_duration": 45.0,
+  "total_word_count": 101,
+  "overall_wpm": 134.7,
+  "micro_loop": "Everyone in the county thought Arthur's farm was dead, but...",
+  "loop_phrase": "Because when the last drop of water hit the seed, the ground came alive."
+}

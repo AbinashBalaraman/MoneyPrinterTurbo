@@ -1,0 +1,105 @@
+[
+  {
+    "video_subject": "farmer_and_rusty Ep1: The Whispering Furrow",
+    "video_script": "The well was bone dry, and Arthur had only one cup of water left. Rusty suddenly darted into the barren field, tearing at the baked earth like his life depended on it. Deep beneath the parched dust lay a crystalline seed, pulsing with a faint emerald glow. Arthur says: \"What did you find there, boy?\" With their pantry empty and crops withered, Arthur uncapped his last canteen and made a desperate gamble. The soil exploded. Massive jade vines shot skyward, unfurling radiant golden blossoms in seconds! Before Arthur could celebrate, the earth trembled\u2014and a deep chasm cracked open beneath the roots.",
+    "video_source": "local",
+    "video_materials": [
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S1-IMG1.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S1-IMG2.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S2-IMG1.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S2-IMG2.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S2-IMG3.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S3-IMG1.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S3-IMG2.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S3-IMG3.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S4-IMG1.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S4-IMG2.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S4-IMG3.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S5-IMG1.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S5-IMG2.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S5-IMG3.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S6-IMG1.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S6-IMG2.png",
+        "duration": 0
+      },
+      {
+        "provider": "local",
+        "url": "C:\\Users\\SATHYA TRADERS\\Documents\\Abi\\Projects\\shorts_content_engine\\output\\stills_demo\\farmer_and_rusty_ep01\\S6-IMG3.png",
+        "duration": 0
+      }
+    ],
+    "video_aspect": "9:16",
+    "video_concat_mode": "sequential",
+    "video_transition_mode": "FadeIn",
+    "video_clip_duration": 3,
+    "video_fit_mode": "cover",
+    "match_materials_to_script": true,
+    "voice_name": "en-US-ChristopherNeural",
+    "voice_volume": 1.0,
+    "subtitle_enabled": true,
+    "bgm_type": "random",
+    "bgm_volume": 0.2
+  }
+]

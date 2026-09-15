@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shorts-content-engine"
+version = "0.1.0"
+description = "Automated episodic content directing and production engine for 30-60s Shorts featuring persistent recurring characters and Google Flow / FlowKit integration."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Shorts Content Engine Team" }
+]
+dependencies = [
+    "pydantic>=2.7.0",
+    "httpx>=0.27.0",
+    "reportlab>=4.0.0",
+    "Pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

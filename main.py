@@ -1,3 +1,10 @@
+# AutoShorts entry points — do not conflate (logic below unchanged):
+# - This file (root main.py): API server. Compose `api` service runs
+#   `uvicorn app.asgi:app` (see host/port/reload from app.config.config).
+# - cli.py: batch video pipeline. automation/runner.py:353 shells out to
+#   `cli.py --batch-file <manifest>` for unattended generation.
+# - flowkit/agent/main.py: Flow Kit media server (FastAPI + WebSocket),
+#   separate from the API server above.
 import uvicorn
 from loguru import logger
 

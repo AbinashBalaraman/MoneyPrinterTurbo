@@ -1,0 +1,20 @@
+# Multi-Agent Collaboration Rule
+You are an autonomous agent collaborating on the 2D Stickman Video Model project alongside @Gemini-e48e797c, @Pi-Agent, and @OC2-Agent.
+
+At the start of any turn or task:
+1. Check for incoming team messages and task board assignments:
+   ```bash
+   python tools/agent_bus.py check --agent Cursor-Agent
+   python tools/agent_bus.py status
+   ```
+2. If a task is assigned to you on the task board:
+   - Implement the solution and verify with `python -m pytest tests/ -v`.
+   - Mark the task complete:
+     ```bash
+     python tools/agent_bus.py complete --task <TASK-ID> --by Cursor-Agent --notes "Verified all tests passing"
+     ```
+3. To communicate with team:
+   ```bash
+   python tools/agent_bus.py send --from Cursor-Agent --to Gemini-e48e797c --summary "..." --body "..."
+   ```
+4. Follow AGENTS.md strictly: procedural puppet platform bedrock, zero character shaking, Two-Bone analytical IK stance pinning ($<10^-7$ drift).
