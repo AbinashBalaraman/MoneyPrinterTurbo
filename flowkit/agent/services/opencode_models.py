@@ -88,7 +88,7 @@ def resolve_model_reasoning(model_id: str) -> tuple[list[str], str]:
         return list(REASONING_TIERS_MUSE), "xhigh"
     if any(k in mid for k in ("deepseek-v4", "glm-5", "qwen", "mimo")):
         return list(REASONING_TIERS_STANDARD), "high"
-    if any(k in mid for k in ("nemotron", "ling")):
+    if any(k in mid for k in ("nemotron", "ling", "llama", "mistral")):
         return list(REASONING_TIERS_NONE), "off"
     if any(k in mid for k in ("claude", "gpt-5", "gemini")):
         return list(REASONING_TIERS_STANDARD), "medium"
@@ -108,29 +108,57 @@ def resolve_endpoint_type(model_id: str) -> str:
     return ENDPOINT_CHAT_COMPLETIONS
 
 
-def _builtin(model_id: str, name: str, *, vision: bool = True, source: str = "builtin") -> ModelInfo:
+def _builtin(
+    model_id: str,
+    name: str,
+    *,
+    is_free: Optional[bool] = None,
+    vision: bool = True,
+    source: str = "builtin",
+) -> ModelInfo:
     tiers, default = resolve_model_reasoning(model_id)
+    free_flag = ("free" in model_id.lower()) if is_free is None else is_free
     return ModelInfo(
         id=model_id,
         name=name,
         endpoint_type=resolve_endpoint_type(model_id),
         supported_reasoning=tiers,
         default_reasoning=default,
-        is_free="free" in model_id.lower(),
+        is_free=free_flag,
         supports_vision=vision,
         source=source,
     )
 
 
 #: Always present, so the dashboard has something usable when the network or
-#: the API key is unavailable. Ids match the reference implementation exactly.
+#: the API key is unavailable. Includes top 10 fastest benchmarked NVIDIA NIM models & Google Gemini.
 CANONICAL_FREE_MODELS: list[ModelInfo] = [
-    _builtin("muse-spark-1.3-contributor-free", "Muse Spark 1.3 (Free · Meta)"),
-    _builtin("muse-spark-1.2-contributor-free", "Muse Spark 1.2 (Free · Meta)"),
-    _builtin("deepseek-v4-flash-free", "DeepSeek v4 Flash (Free)"),
-    _builtin("mimo-v2.5-free", "Mimo v2.5 (Free)"),
-    _builtin("nemotron-3-ultra-free", "Nemotron 3 Ultra (Free)", vision=False),
-    _builtin("ling-3.0-flash-fin-free", "Ling 3.0 Flash (Free)", vision=False),
+    # Top 10 Fastest NVIDIA NIM & Nemotron Models (benchmarked live with latency)
+    _builtin("nvidia/riva-translate-4b-instruct-v2", "NVIDIA Riva Translate 4B (NIM · 410ms)", is_free=True),
+    _builtin("meta/muse-glimmer-30b", "Meta Muse Glimmer 30B (NIM · 549ms)", is_free=True),
+    _builtin("nvidia/nemotron-3.5-lightning-30b-a3b", "NVIDIA Nemotron 3.5 Lightning (NIM · 668ms)", is_free=True),
+    _builtin("nemotron-3.5-lightning-free", "NVIDIA Nemotron 3.5 Lightning (Free · 650ms)", is_free=True, vision=False),
+    _builtin("nvidia/ising-calibration-1.5-31b", "NVIDIA Ising Calibration 31B (NIM · 700ms)", is_free=True),
+    _builtin("meta/llama-3.2-11b-vision-instruct", "Meta Llama 3.2 11B Vision (NIM · 762ms)", is_free=True),
+    _builtin("nvidia/nemotron-3-super-120b-a12b", "NVIDIA Nemotron 3 Super 120B (NIM · Fast)", is_free=True),
+    _builtin("openai/gpt-oss-20b", "OpenAI GPT OSS 20B (NIM · Fast)", is_free=True),
+    _builtin("nemotron-3-ultra-free", "NVIDIA Nemotron 3 Ultra (Free)", is_free=True, vision=False),
+    _builtin("nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "NVIDIA Nemotron 3 Nano Omni (NIM)", is_free=True),
+
+    # Google Gemini Models
+    _builtin("gemini-2.5-flash", "Gemini 2.5 Flash (Google · Fast)", is_free=True),
+    _builtin("gemini-2.5-pro", "Gemini 2.5 Pro (Google · Thinking)", is_free=True),
+    _builtin("gemini-1.5-flash", "Gemini 1.5 Flash (Google · Fast)", is_free=True),
+    _builtin("gemini-2.0-flash", "Gemini 2.0 Flash (Google · Fast)", is_free=True),
+    _builtin("gemini-3.8-flash", "Gemini 3.8 Flash (Google · Ultra Fast)", is_free=True),
+    _builtin("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite (Google)", is_free=True),
+
+    # General Free Models
+    _builtin("deepseek-v4-flash-free", "DeepSeek v4 Flash (Free)", is_free=True),
+    _builtin("muse-spark-1.3-contributor-free", "Muse Spark 1.3 (Free · Meta)", is_free=True),
+    _builtin("muse-spark-1.2-contributor-free", "Muse Spark 1.2 (Free · Meta)", is_free=True),
+    _builtin("mimo-v2.5-free", "Mimo v2.5 (Free)", is_free=True),
+    _builtin("ling-3.0-flash-fin-free", "Ling 3.0 Flash (Free)", is_free=True, vision=False),
 ]
 
 

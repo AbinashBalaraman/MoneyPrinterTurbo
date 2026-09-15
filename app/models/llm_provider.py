@@ -245,10 +245,17 @@ LLM_PROVIDER_REGISTRY = (
         "Google Gemini",
         adapter="gemini",
         api_key_url="https://aistudio.google.com/app/apikey",
-        default_model="gemini-3.1-pro-preview",
+        default_model="gemini-2.5-flash",
         requires_base_url=False,
         show_base_url=False,
         deprecated_models=("gemini-pro", "gemini-1.0-pro"),
+    ),
+    LLMProviderSpec(
+        "nvidia_nim",
+        "NVIDIA NIM",
+        api_key_url="https://build.nvidia.com/",
+        default_model="nvidia/llama-3.1-nemotron-70b-instruct",
+        default_base_url="https://integrate.api.nvidia.com/v1",
     ),
     LLMProviderSpec(
         "deepseek",

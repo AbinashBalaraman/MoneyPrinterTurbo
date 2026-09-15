@@ -192,6 +192,11 @@ OPENCODE_TIMEOUT = float(os.environ.get("OPENCODE_TIMEOUT", "120"))
 # How long a fetched model list is trusted before it is refreshed.
 OPENCODE_MODELS_TTL = float(os.environ.get("OPENCODE_MODELS_TTL", "300"))
 
+# ─── Direct Providers (Gemini & NVIDIA NIM) ──────────────────
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", os.environ.get("NIM_API_KEY", ""))
+NVIDIA_BASE_URL = os.environ.get("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+
 # ─── CLI Providers (video review vision analysis) ────────────
 _PROVIDERS_FILE = Path(__file__).parent / "providers.json"
 with open(_PROVIDERS_FILE) as _pvf:

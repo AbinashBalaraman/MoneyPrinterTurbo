@@ -63,11 +63,32 @@ class AgentChatRequest(ChatRequest):
 
 
 def _key_configured() -> bool:
-    return bool(config.OPENCODE_API_KEY)
+    return bool(config.OPENCODE_API_KEY or config.GEMINI_API_KEY or config.NVIDIA_API_KEY)
 
 
-def _upstream_headers() -> dict:
-    return {
+def _upstream_for_model(model_id: str, endpoint_type: str) -> tuple[str, dict]:
+    mid = model_id.lower()
+    # 1. Direct Google Gemini if GEMINI_API_KEY is configured
+    if (mid.startswith("gemini-") or "/gemini" in mid) and config.GEMINI_API_KEY:
+        url = f"https://generativelanguage.googleapis.com/v1beta/openai{endpoint_path(endpoint_type)}"
+        headers = {
+            "Authorization": f"Bearer {config.GEMINI_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        return url, headers
+
+    # 2. Direct NVIDIA NIM if NVIDIA_API_KEY is configured
+    if (mid.startswith("nvidia/") or mid.startswith("meta/") or mid.startswith("mistralai/")) and config.NVIDIA_API_KEY:
+        url = f"{config.NVIDIA_BASE_URL.rstrip('/')}{endpoint_path(endpoint_type)}"
+        headers = {
+            "Authorization": f"Bearer {config.NVIDIA_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        return url, headers
+
+    # 3. Default: OpenCode AI Zen (nemotron-3.5-lightning-free, nemotron-3-ultra-free, muse-spark, deepseek, etc.)
+    url = f"{config.OPENCODE_BASE_URL.rstrip('/')}{endpoint_path(endpoint_type)}"
+    headers = {
         "Authorization": f"Bearer {config.OPENCODE_API_KEY}",
         "Content-Type": "application/json",
         "x-opencode-session": f"flowkit-{int(time.time())}",
@@ -75,6 +96,24 @@ def _upstream_headers() -> dict:
         "x-opencode-client": "flowkit-agent-studio/1.0",
         "User-Agent": "flowkit-agent-studio/1.0 VSCode",
     }
+    return url, headers
+
+
+def _format_upstream_error(model_id: str, raw_text: str) -> str:
+    mid = model_id.lower()
+    if "CreditsError" in raw_text or "No payment method" in raw_text:
+        if "gemini" in mid:
+            return (
+                "Google Gemini requires a free API key from Google AI Studio. "
+                "Add GEMINI_API_KEY=... in your .env file (https://aistudio.google.com/app/apikey). "
+                "Or switch to 'nemotron-3.5-lightning-free' for instant free inference."
+            )
+        if "nvidia" in mid or "llama" in mid:
+            return (
+                "NVIDIA NIM direct models require an API key from https://build.nvidia.com/. "
+                "Add NVIDIA_API_KEY=... in your .env file, or select 'nemotron-3.5-lightning-free' for instant free inference."
+            )
+    return raw_text
 
 
 def _sse(payload: dict) -> str:
@@ -174,27 +213,28 @@ async def chat(body: ChatRequest):
         temperature=body.temperature,
     )
 
-    url = f"{config.OPENCODE_BASE_URL.rstrip('/')}{endpoint_path(model.endpoint_type)}"
+    url, headers = _upstream_for_model(model.id, model.endpoint_type)
 
     started = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=config.OPENCODE_TIMEOUT, trust_env=False) as client:
-            response = await client.post(url, headers=_upstream_headers(), json=payload)
+            response = await client.post(url, headers=headers, json=payload)
     except httpx.TimeoutException:
-        raise HTTPException(504, f"OpenCode timed out after {config.OPENCODE_TIMEOUT:.0f}s")
+        raise HTTPException(504, f"Model timed out after {config.OPENCODE_TIMEOUT:.0f}s")
     except Exception as e:
-        raise HTTPException(502, f"Could not reach OpenCode: {e}")
+        raise HTTPException(502, f"Could not reach model provider: {e}")
 
     latency_ms = int((time.monotonic() - started) * 1000)
 
     if response.status_code >= 400:
-        logger.warning("OpenCode %s failed (%s): %s",
-                       model.id, response.status_code, response.text[:300])
-        raise HTTPException(response.status_code, response.text[:500])
+        err_detail = _format_upstream_error(model.id, response.text)
+        logger.warning("Model %s failed (%s): %s",
+                       model.id, response.status_code, err_detail[:300])
+        raise HTTPException(response.status_code, err_detail[:500])
 
     parsed = parse_chat_response(model.endpoint_type, response.json())
 
-    logger.info("OpenCode %s replied in %dms (%s)", model.id, latency_ms, model.endpoint_type)
+    logger.info("Model %s replied in %dms (%s)", model.id, latency_ms, model.endpoint_type)
 
     return {
         **parsed,
@@ -230,7 +270,7 @@ async def chat_stream(body: ChatRequest):
         reasoning_effort=effort,
         temperature=body.temperature,
     )
-    url = f"{config.OPENCODE_BASE_URL.rstrip('/')}{endpoint_path(model.endpoint_type)}"
+    url, headers = _upstream_for_model(model.id, model.endpoint_type)
 
     async def event_stream():
         started = time.monotonic()
@@ -239,13 +279,14 @@ async def chat_stream(body: ChatRequest):
                 timeout=config.OPENCODE_TIMEOUT, trust_env=False
             ) as client:
                 async with client.stream(
-                    "POST", url, headers=_upstream_headers(), json=payload
+                    "POST", url, headers=headers, json=payload
                 ) as response:
                     if response.status_code >= 400:
                         raw = (await response.aread()).decode("utf-8", "replace")
-                        logger.warning("OpenCode %s stream failed (%s): %s",
-                                       model.id, response.status_code, raw[:300])
-                        yield _sse({"type": "error", "message": raw[:500]})
+                        err_detail = _format_upstream_error(model.id, raw)
+                        logger.warning("Model %s stream failed (%s): %s",
+                                       model.id, response.status_code, err_detail[:300])
+                        yield _sse({"type": "error", "message": err_detail[:500]})
                         return
 
                     async for line in response.aiter_lines():
@@ -268,16 +309,16 @@ async def chat_stream(body: ChatRequest):
         except httpx.TimeoutException:
             yield _sse({
                 "type": "error",
-                "message": f"OpenCode timed out after {config.OPENCODE_TIMEOUT:.0f}s",
+                "message": f"Model timed out after {config.OPENCODE_TIMEOUT:.0f}s",
             })
             return
         except Exception as e:  # noqa: BLE001 - the client must be told, not left hanging
-            logger.warning("OpenCode %s stream broke: %s", model.id, e)
+            logger.warning("Model %s stream broke: %s", model.id, e)
             yield _sse({"type": "error", "message": f"Stream broke: {e}"})
             return
 
         latency_ms = int((time.monotonic() - started) * 1000)
-        logger.info("OpenCode %s streamed in %dms (%s)",
+        logger.info("Model %s streamed in %dms (%s)",
                     model.id, latency_ms, model.endpoint_type)
         yield _sse({
             "type": "done",
@@ -300,7 +341,7 @@ async def chat_stream(body: ChatRequest):
 
 
 def _stream_model_call(
-    model: ModelInfo, effort: str, temperature: float, url: str
+    model: ModelInfo, effort: str, temperature: float, url: str, headers: dict
 ) -> Callable[[list[dict]], AsyncIterator[dict]]:
     """Build the ``model_call`` the tool loop drives.
 
@@ -322,15 +363,16 @@ def _stream_model_call(
             timeout=config.OPENCODE_TIMEOUT, trust_env=False
         ) as client:
             async with client.stream(
-                "POST", url, headers=_upstream_headers(), json=payload
+                "POST", url, headers=headers, json=payload
             ) as response:
                 if response.status_code >= 400:
                     raw = (await response.aread()).decode("utf-8", "replace")
+                    err_detail = _format_upstream_error(model.id, raw)
                     logger.warning(
-                        "OpenCode %s agent stream failed (%s): %s",
-                        model.id, response.status_code, raw[:300],
+                        "Model %s agent stream failed (%s): %s",
+                        model.id, response.status_code, err_detail[:300],
                     )
-                    raise RuntimeError(raw[:500])
+                    raise RuntimeError(err_detail[:500])
 
                 async for line in response.aiter_lines():
                     if not line.startswith("data:"):
@@ -366,13 +408,13 @@ async def agent_chat_stream(body: AgentChatRequest):
     """
     model = await _resolve_model(body)
     effort = body.reasoning_effort or model.default_reasoning
-    url = f"{config.OPENCODE_BASE_URL.rstrip('/')}{endpoint_path(model.endpoint_type)}"
+    url, headers = _upstream_for_model(model.id, model.endpoint_type)
 
     messages = [m.model_dump() for m in body.messages]
     if body.use_tools:
         messages = chat_agent.prepare_messages(messages)
 
-    model_call = _stream_model_call(model, effort, body.temperature, url)
+    model_call = _stream_model_call(model, effort, body.temperature, url, headers)
 
     async def event_stream():
         started = time.monotonic()
