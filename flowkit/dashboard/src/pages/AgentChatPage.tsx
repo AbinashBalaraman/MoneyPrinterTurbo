@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import TerminalPane from '@/components/chat/TerminalPane'
 import {
-  Bot,
   Send,
   Terminal,
   Clapperboard,
@@ -12,8 +11,6 @@ import {
   Copy,
   Check,
   RotateCcw,
-  Download,
-  Settings2,
   ChevronDown,
   ChevronUp,
   Play,
@@ -27,7 +24,6 @@ import {
   Mic,
   Sparkles,
 } from 'lucide-react'
-import { useWebSocketContext } from '../api/useWebSocketContext'
 import { fetchAPI } from '../api/client'
 import { safeHref } from '../lib/markdown'
 import { MediaPreviewCard } from '../components/media/MediaPreviewCard'
@@ -552,10 +548,9 @@ function ToolActivity({ ev, copyKey, copiedId, onCopy, onApprove }: ToolActivity
 }
 
 export default function AgentChatPage() {
-  const { isConnected } = useWebSocketContext()
 
   // State
-  const [activePersona, setActivePersona] = useState<PersonaType>('director')
+  const activePersona: PersonaType = 'director'
   // When true the studio shows a real cmd.exe PTY (for CLI agents) instead of chat.
   const [showTerminal, setShowTerminal] = useState(false)
   const [showModelMenu, setShowModelMenu] = useState(false)
@@ -604,8 +599,6 @@ export default function AgentChatPage() {
   const [expandedThoughts, setExpandedThoughts] = useState<Record<string, boolean>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [dispatchStatus, setDispatchStatus] = useState<{ id: string; loading: boolean; error?: string; successProject?: { id: string; name: string } } | null>(null)
-  const [showSettings, setShowSettings] = useState(false)
-  const [serverHealth, setServerHealth] = useState<boolean | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -740,10 +733,6 @@ export default function AgentChatPage() {
   void dismissCanon
 
   useEffect(() => {
-    fetchAPI<any>('/health')
-      .then(() => setServerHealth(true))
-      .catch(() => setServerHealth(false))
-
     fetchAPI<any>('/api/continuity/ledger')
       .then(data => setContinuityData(data))
       .catch(() => setContinuityData(null))
@@ -790,7 +779,6 @@ export default function AgentChatPage() {
   const currentPersona = PERSONAS[activePersona]
   const currentModelInfo = findModel(models, selectedModel)
   const reasoningTiers: ReasoningEffort[] = currentModelInfo?.supported_reasoning ?? ['off']
-  const catalogueReady = models.length > 0
 
   // Segment models by providers for structured model selection
   const PROVIDER_ORDER = ['NVIDIA NIM', 'Google Gemini', 'Meta', 'OpenAI', 'DeepSeek', 'OpenCode / Community']
@@ -1263,33 +1251,6 @@ export default function AgentChatPage() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  const handleClearHistory = () => {
-    if (
-      confirm(
-        'Clear this chat from the studio?\n\n' +
-          'Saved conversations on the server are NOT deleted — they stay under Memory.'
-      )
-    ) {
-      localStorage.removeItem(STORAGE_KEY)
-      // A fresh thread, so the next message does not append to the one just
-      // cleared (and does not overwrite its server copy).
-      startNewConversation()
-    }
-  }
-
-  const handleExportMarkdown = () => {
-    const text = messages
-      .map(m => `### ${m.role === 'user' ? '👤 USER' : '🤖 ' + (m.modelUsed || 'ASSISTANT')} (${new Date(m.timestamp || Date.now()).toLocaleTimeString()})\n\n${m.content}\n\n---`)
-      .join('\n\n')
-    const blob = new Blob([text], { type: 'text/markdown' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `flowkit-agent-chat-${new Date().toISOString().slice(0, 10)}.md`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   // Detect and extract JSON manifest from response for 1-click FlowKit project creation
   const extractManifest = (content: string): any | null => {
     const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
@@ -1408,6 +1369,12 @@ export default function AgentChatPage() {
           </div>
         </div>
       </header>
+
+      {!showTerminal && (saveError || savedAt) && (
+        <p role="status" className="px-4 py-1 text-xs text-[var(--muted)]">
+          {saveError ? `Server save failed: ${saveError}. This chat remains in this browser.` : 'Conversation saved'}
+        </p>
+      )}
 
       {showTerminal && (
         <div className="flex-1 min-h-0">

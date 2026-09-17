@@ -4,7 +4,6 @@ import {
   Pause,
   Volume2,
   VolumeX,
-  Maximize2,
   Download,
   Film,
   Music,
@@ -13,9 +12,7 @@ import {
   Check,
   Smartphone,
   Monitor,
-  RotateCw,
 } from 'lucide-react'
-import { Button } from '../ui/button'
 
 interface MediaPreviewProps {
   src: string

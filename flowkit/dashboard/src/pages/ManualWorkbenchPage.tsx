@@ -16,21 +16,13 @@ import {
   FileText,
   ListOrdered,
   Layers,
-  ChevronDown,
-  ChevronRight,
   ShieldCheck,
-  ShieldAlert,
-  ArrowUpRight,
   Clock,
-  Settings2,
   Eye,
   Music,
   Image as ImageIcon,
-  FolderOpen,
 } from 'lucide-react'
 import { fetchAPI } from '../api/client'
-import { useTranslation } from '../i18n/useTranslation'
-import { useWebSocketContext } from '../api/useWebSocketContext'
 import { Button } from '../components/ui/button'
 import { MediaPreviewCard } from '../components/media/MediaPreviewCard'
 
@@ -85,8 +77,6 @@ const DEPARTMENT_META: Record<string, { label: string; icon: typeof Clapperboard
 }
 
 export default function ManualWorkbenchPage() {
-  const { t } = useTranslation()
-  const { isConnected } = useWebSocketContext()
   const [catalog, setCatalog] = useState<OperationsResponse | null>(null)
   const [loadingCatalog, setLoadingCatalog] = useState(true)
   const [activeDept, setActiveDept] = useState<string>('director')
