@@ -78,7 +78,7 @@ def _upstream_for_model(model_id: str, endpoint_type: str) -> tuple[str, dict]:
         return url, headers
 
     # 2. Direct NVIDIA NIM if NVIDIA_API_KEY is configured
-    if (mid.startswith("nvidia/") or mid.startswith("meta/") or mid.startswith("mistralai/")) and config.NVIDIA_API_KEY:
+    if (mid.startswith("nvidia/") or mid.startswith("meta/") or mid.startswith("mistralai/") or mid.startswith("openai/") or mid.startswith("poolside/")) and config.NVIDIA_API_KEY:
         url = f"{config.NVIDIA_BASE_URL.rstrip('/')}{endpoint_path(endpoint_type)}"
         headers = {
             "Authorization": f"Bearer {config.NVIDIA_API_KEY}",

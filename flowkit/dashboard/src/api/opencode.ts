@@ -45,6 +45,7 @@ export interface ChatMessage {
 export interface ModelOption {
   id: string
   name: string
+  provider?: string
   endpoint_type: EndpointType
   supported_reasoning: ReasoningEffort[]
   default_reasoning: ReasoningEffort
@@ -248,6 +249,28 @@ export async function fetchOpenCodeModels(refresh = false): Promise<ModelCatalog
 /** Look a model up in a fetched catalogue. Returns undefined rather than guessing. */
 export function findModel(models: ModelOption[], modelId: string): ModelOption | undefined {
   return models.find(m => m.id === modelId)
+}
+
+/** Determine the provider group name for clean UI segmentation. */
+export function getModelProvider(model: ModelOption): string {
+  if (model.provider && model.provider !== 'Other') return model.provider
+  const mid = (model.id || '').toLowerCase()
+  if (mid.startsWith('nvidia/') || mid.includes('nemotron') || mid.includes('riva') || mid.includes('ising')) {
+    return 'NVIDIA NIM'
+  }
+  if (mid.startsWith('gemini-') || mid.startsWith('google/') || mid.includes('gemini')) {
+    return 'Google Gemini'
+  }
+  if (mid.startsWith('meta/') || mid.includes('muse') || mid.includes('llama')) {
+    return 'Meta'
+  }
+  if (mid.startsWith('openai/') || mid.includes('gpt')) {
+    return 'OpenAI'
+  }
+  if (mid.includes('deepseek')) {
+    return 'DeepSeek'
+  }
+  return 'OpenCode / Community'
 }
 
 /**

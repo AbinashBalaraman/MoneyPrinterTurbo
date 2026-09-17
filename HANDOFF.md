@@ -421,3 +421,105 @@ characters were legitimately renamed or removed. Warn, and report.
 And relatedly: **do not replace `conditioned_with` with a check against the
 current project links.** That is the bug that was already fixed once — linking a
 character afterwards would make an un-conditioned image look fine.
+
+
+---
+
+## 10. 2026-09-16/17 — MoneyPrinterTurbo + FlowKit integration
+
+### What changed
+
+The original objective is now implemented and **proven live**: MoneyPrinterTurbo
+is the assembly engine and FlowKit is its native AI-media source.
+
+The path is:
+
+```
+FlowKit scene media (video preferred, still fallback)
+  → download into storage/local_videos/<task>/
+  → scrub with the project SCE ffmpeg watermark engine
+  → MoneyPrinterTurbo local-material pipeline
+  → TTS + subtitles + BGM + vertical final MP4
+```
+
+- `automation/flowkit_bridge.py` now supports `--from-project <id|name>` and
+  `--media auto|video|still`.
+  - `auto` selects a completed FlowKit vertical video per scene when available;
+    otherwise it selects its completed still.
+  - It stages in storyboard order, preserves scene narration, normalises still
+    formats, and writes safe absolute local material paths into emitted batch
+    manifests.
+  - It no longer depends on the former external Node/GWR watermark package.
+- Scrubbing now uses the project's existing
+  `shorts_content_engine/src/postprocess/watermark.py`:
+  - stills: `gemini_bottom_right` profile;
+  - FlowKit video clips: `veo_bottom_right` profile.
+  - Bridge scrubbing fails loudly if FFmpeg/scrub fails rather than quietly
+    feeding watermarked media downstream.
+- `automation/runner.py` accepts `--flowkit-project` and `--flowkit-media`.
+  It stages the project once per unattended batch and applies its local media to
+  every generated entry. This keeps FlowKit fully inside the regular
+  MoneyPrinterTurbo workflow rather than a side script.
+- `flowkit/agent/operations/assembly.py` has `build_batch_task` (write risk),
+  exposing the full `VideoParams` settings object: sources, ratio, concat,
+  transition, clip duration, voice, BGM, subtitles, fonts, stroke and related
+  MoneyPrinterTurbo options. Its optional `flowkit_project` calls the same
+  staging bridge, not duplicate download/scrub logic.
+- `flowkit/agent/operations/shell.py` adds `run_bridge`, using the assembly venv
+  to execute the bridge. The agent catalog is now 24 operations; spend remains
+  enabled at last check (`AGENT_ALLOW_SPEND=1`).
+
+### Live proof
+
+1. Re-tested FlowKit video generation after the previous Sept 13 failures:
+   request `417f2848-4ad8-47a4-b1ce-0bf9d49eb91` for
+   `farmer_and_rusty - Ep 1: The Whispering Furrow` completed in ~70 seconds.
+   It produced Flow media `47d3a25a-0c7d-49dd-98b4-4ba347ef807e`.
+   Therefore the old Veo access-denied result is stale and must not be treated
+   as current account state.
+2. Old signed Flow image URLs had expired (403), so five scene stills were
+   explicitly regenerated: all 5/5 completed.
+3. Live bridge run on project `f5ce611c-3f4c-471d-8dcf-c26059defa3f` staged six
+   ordered materials: one generated video plus five Flow stills. The five stills
+   were visibly logged as scrubbed by the in-project engine.
+4. MoneyPrinterTurbo assembled a complete final vertical episode:
+   `storage/tasks/4e163a3a-45e4-4964-8ccf-253fab6efda1/final-1.mp4`
+   (11.8 MB, 39 seconds) with TTS and subtitles. The CLI summary reported
+   `succeeded: 1, failed: 0`.
+
+Known output-quality detail: available source media totaled 33 seconds while
+narration was 39 seconds, so the assembly engine looped two clips. Generate
+more Flow video clips or shorten narration to avoid that repeat.
+
+### Validation
+
+- `test/test_flowkit_bridge.py`: **56 passed**.
+- `test/test_flowkit_bridge.py test/test_automation_runner.py
+  test/test_automation_ledger.py test/test_main.py`: **87 passed**.
+- `flowkit/tests/unit/test_build_batch_task.py`, operations registry/API suites:
+  **54 passed**.
+
+### Cleanup status
+
+- The old `automation/watermark_scrub.py` GWR/Node implementation and its test
+  were removed in favor of the existing project SCE scrubber.
+- A broad disk inventory was started but **do not delete side-projects or
+  historic generated data blindly**. `video_model*`, `content_creation/`, and
+  `storage/` require an owner-retention decision. `storage/` currently contains
+  ~554 MB of caches/tasks, including the new final artifact above.
+- Current tracked worktree also contains earlier Studio/OpenCode changes and
+  generated FlowKit conversation/benchmark files. Do not bundle or delete them
+  casually; separate the intended code changes from generated state before
+  committing.
+
+### Recommended immediate next steps
+
+1. Add the FlowKit source controls to Studio UI (Phase 3 was intentionally
+   deferred while agent + CLI parity was proven first).
+2. Offer a per-scene media plan: generate missing video clips before assembly,
+   then enforce enough source duration for narration to avoid looped footage.
+3. Make cleanup a separate, approved task: classify every top-level folder as
+   live code, side project, generated/cache, or archive; then delete only
+   owner-approved generated/cache content.
+4. Commit source changes separately from generated DBs, conversations, media,
+   and test outputs.

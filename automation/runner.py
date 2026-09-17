@@ -166,6 +166,36 @@ def _parse_summary(stdout: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _attach_flowkit_materials(
+    entries: List[Dict[str, Any]], project_ref: str, media: str, run_id: str
+) -> int:
+    """Stage a FlowKit project's completed media once and attach to entries.
+
+    One staging run serves the whole batch: the media belongs to the episode,
+    not to any single topic. Returns the staged material count. Any failure
+    raises — entries without materials would render the wrong video.
+    """
+    from automation.flowkit_bridge import (
+        FlowkitError,
+        ProjectScrubber,
+        apply_to_params,
+        stage_flowkit_project,
+    )
+
+    scrubber = ProjectScrubber()
+    if not scrubber.available():
+        raise ValueError("ffmpeg was not found on PATH; the project scrubber needs it")
+    try:
+        staged, _narration = stage_flowkit_project(
+            project_ref, f"run-{run_id}", scrubber=scrubber, media=media
+        )
+    except FlowkitError as exc:
+        raise ValueError(f"flowkit staging failed: {exc}") from exc
+    for entry in entries:
+        apply_to_params(entry, staged, entry.get("video_clip_duration", 5))
+    return len(staged)
+
+
 def _write_manifest(entries: List[Dict[str, Any]], run_id: str) -> str:
     manifest_dir = os.path.join(REPO_ROOT, "storage", "automation", "manifests")
     os.makedirs(manifest_dir, exist_ok=True)
@@ -238,6 +268,19 @@ def _build_parser() -> argparse.ArgumentParser:
         default=_env("AUTOSHORTS_DRY_RUN", "").lower() in {"1", "true", "yes", "on"},
         help="Plan only: no generation, no publishing, no ledger writes "
         "(use --no-dry-run to override AUTOSHORTS_DRY_RUN)",
+    )
+    parser.add_argument(
+        "--flowkit-project",
+        default=_env("AUTOSHORTS_FLOWKIT_PROJECT"),
+        help="FlowKit project id or name: stage its completed videos/stills once "
+        "(scrubbed, into storage/local_videos) and attach them to every entry "
+        "instead of stock footage",
+    )
+    parser.add_argument(
+        "--flowkit-media",
+        default=_env("AUTOSHORTS_FLOWKIT_MEDIA", "auto"),
+        choices=["auto", "video", "still"],
+        help="with --flowkit-project: prefer videos, stills only, or either",
     )
     parser.add_argument(
         "--status",
@@ -344,6 +387,18 @@ def run(args: argparse.Namespace) -> int:
             print(f"note: {len(selected) - len(claimed)} topic(s) claimed elsewhere")
 
         entries = [{**template, "video_subject": topic.title} for topic in claimed]
+        if args.flowkit_project:
+            try:
+                staged_count = _attach_flowkit_materials(
+                    entries, args.flowkit_project, args.flowkit_media, run_id
+                )
+            except ValueError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                for topic in claimed:
+                    ledger.mark_failed(topic.key, str(exc))
+                ledger.finish_run(run_id, 0, len(claimed), note=str(exc))
+                return EXIT_SETUP_FAILED
+            print(f"flowkit materials : {staged_count} staged from {args.flowkit_project}")
         manifest_path = _write_manifest(entries, run_id)
         print(f"run id          : {run_id}")
         print(f"manifest        : {manifest_path}")

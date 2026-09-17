@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import TerminalPane from '@/components/chat/TerminalPane'
 import {
@@ -35,6 +35,7 @@ import {
   explainUpstreamError,
   fetchOpenCodeModels,
   findModel,
+  getModelProvider,
   streamAgentChat,
   streamOpenCodeChat,
   type AgentToolEvent,
@@ -786,6 +787,47 @@ export default function AgentChatPage() {
   const reasoningTiers: ReasoningEffort[] = currentModelInfo?.supported_reasoning ?? ['off']
   const catalogueReady = models.length > 0
 
+  // Segment models by providers for structured model selection
+  const PROVIDER_ORDER = ['NVIDIA NIM', 'Google Gemini', 'Meta', 'OpenAI', 'DeepSeek', 'OpenCode / Community']
+
+  const providerGroups = useMemo(() => {
+    const groups: Record<string, ModelOption[]> = {}
+    for (const m of models) {
+      const p = getModelProvider(m)
+      if (!groups[p]) groups[p] = []
+      groups[p].push(m)
+    }
+    const ordered: { provider: string; list: ModelOption[] }[] = []
+    for (const p of PROVIDER_ORDER) {
+      if (groups[p] && groups[p].length > 0) {
+        ordered.push({ provider: p, list: groups[p] })
+      }
+    }
+    for (const [p, list] of Object.entries(groups)) {
+      if (!PROVIDER_ORDER.includes(p) && list.length > 0) {
+        ordered.push({ provider: p, list })
+      }
+    }
+    return ordered
+  }, [models])
+
+  const getProviderDotColor = (provider: string) => {
+    switch (provider) {
+      case 'NVIDIA NIM':
+        return '#76b900'
+      case 'Google Gemini':
+        return '#3b82f6'
+      case 'Meta':
+        return '#a855f7'
+      case 'OpenAI':
+        return '#10b981'
+      case 'DeepSeek':
+        return '#06b6d4'
+      default:
+        return '#94a3b8'
+    }
+  }
+
   /** Begin a fresh thread. The previous one stays saved on the server. */
   const startNewConversation = () => {
     const fresh = newConversationId()
@@ -1337,7 +1379,7 @@ export default function AgentChatPage() {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
               showTerminal
                 ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
-                : 'text-[#9aa0a6] hover:text-white border-white/10 hover:bg-white/5'
+                : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-white/10 hover:bg-white/5'
             }`}
             title="Toggle cmd.exe PTY CLI terminal"
           >
@@ -1348,7 +1390,7 @@ export default function AgentChatPage() {
           {/* New Chat Button */}
           <button
             onClick={startNewConversation}
-            className="p-1.5 rounded-full border text-[#9aa0a6] hover:text-white hover:bg-white/5 transition-colors"
+            className="p-1.5 rounded-full border text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-white/5 transition-colors"
             style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
             title="New conversation"
           >
@@ -1379,7 +1421,7 @@ export default function AgentChatPage() {
               Hello, Abinash
             </span>
           </h1>
-          <p className="text-lg sm:text-xl text-[#c4c7c5] font-light mt-3 tracking-wide">
+          <p className="text-lg sm:text-xl font-light mt-3 tracking-wide text-[var(--muted)]">
             How can I help you create your next Short today?
           </p>
 
@@ -1394,14 +1436,14 @@ export default function AgentChatPage() {
               style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
             >
               <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-semibold text-[#e3e3e3] group-hover:text-blue-400 transition-colors">
+                <span className="text-xs font-semibold text-[var(--foreground)] group-hover:text-blue-400 transition-colors">
                   Direct an Episode
                 </span>
-                <div className="w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-all">
+                <div className="w-8 h-8 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-[var(--foreground)] transition-all">
                   <Clapperboard size={15} />
                 </div>
               </div>
-              <p className="text-xs text-[#9aa0a6] line-clamp-2 leading-relaxed">
+              <p className="text-xs text-[var(--muted-foreground)] line-clamp-2 leading-relaxed">
                 Write a 5-phase retention Short with Arthur & Rusty under 10s pacing limit
               </p>
             </button>
@@ -1415,14 +1457,14 @@ export default function AgentChatPage() {
               style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
             >
               <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-semibold text-[#e3e3e3] group-hover:text-amber-400 transition-colors">
+                <span className="text-xs font-semibold text-[var(--foreground)] group-hover:text-amber-400 transition-colors">
                   Generate 9:16 Stills
                 </span>
-                <div className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all">
+                <div className="w-8 h-8 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center group-hover:bg-amber-500 group-hover:text-[var(--foreground)] transition-all">
                   <Sparkles size={15} />
                 </div>
               </div>
-              <p className="text-xs text-[#9aa0a6] line-clamp-2 leading-relaxed">
+              <p className="text-xs text-[var(--muted-foreground)] line-clamp-2 leading-relaxed">
                 Create character visual assets with S2P prompt consistency conditioning
               </p>
             </button>
@@ -1436,14 +1478,14 @@ export default function AgentChatPage() {
               style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
             >
               <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-semibold text-[#e3e3e3] group-hover:text-emerald-400 transition-colors">
+                <span className="text-xs font-semibold text-[var(--foreground)] group-hover:text-emerald-400 transition-colors">
                   Assemble Short
                 </span>
-                <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-[var(--foreground)] transition-all">
                   <Zap size={15} />
                 </div>
               </div>
-              <p className="text-xs text-[#9aa0a6] line-clamp-2 leading-relaxed">
+              <p className="text-xs text-[var(--muted-foreground)] line-clamp-2 leading-relaxed">
                 Merge narration, keyframe visuals, audio mix, and animated captions
               </p>
             </button>
@@ -1457,14 +1499,14 @@ export default function AgentChatPage() {
               style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
             >
               <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-semibold text-[#e3e3e3] group-hover:text-purple-400 transition-colors">
+                <span className="text-xs font-semibold text-[var(--foreground)] group-hover:text-purple-400 transition-colors">
                   Scrub Watermark
                 </span>
-                <div className="w-8 h-8 rounded-full bg-purple-500/10 text-purple-400 flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-all">
+                <div className="w-8 h-8 rounded-full bg-purple-500/10 text-purple-400 flex items-center justify-center group-hover:bg-purple-500 group-hover:text-[var(--foreground)] transition-all">
                   <Wrench size={15} />
                 </div>
               </div>
-              <p className="text-xs text-[#9aa0a6] line-clamp-2 leading-relaxed">
+              <p className="text-xs text-[var(--muted-foreground)] line-clamp-2 leading-relaxed">
                 Detect and remove video watermark logos with precise delogo remuxing
               </p>
             </button>
@@ -1498,7 +1540,7 @@ export default function AgentChatPage() {
                   <div className="bg-[#282a2c] text-[#e3e3e3] rounded-[24px] px-5 py-3 text-[14px] leading-relaxed shadow-sm font-sans whitespace-pre-wrap break-words border border-white/5">
                     {msg.content}
                   </div>
-                  <span className="text-[10px] text-[#9aa0a6] px-2 font-sans">
+                  <span className="text-[10px] text-[var(--muted-foreground)] px-2 font-sans">
                     {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </>
@@ -1511,7 +1553,7 @@ export default function AgentChatPage() {
 
                   <div className="flex-1 min-w-0 flex flex-col gap-2">
                     {/* Header Info */}
-                    <div className="flex items-center gap-2 text-xs text-[#9aa0a6] font-sans">
+                    <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)] font-sans">
                       <span className="font-semibold text-white">Gemini</span>
                       <span>·</span>
                       <span>{msg.modelUsed || selectedModel}</span>
@@ -1535,7 +1577,7 @@ export default function AgentChatPage() {
                           <span className="flex items-center gap-2">
                             <BrainCircuit size={13} className="text-amber-400" />
                             <span>Thought for {msg.latencyMs ? (msg.latencyMs / 1000).toFixed(1) : 'a few'} seconds</span>
-                            <span className="text-[11px] text-[#9aa0a6]">
+                            <span className="text-[11px] text-[var(--muted-foreground)]">
                               ({msg.reasoningTokens?.toLocaleString() || 0} tokens evaluated)
                             </span>
                           </span>
@@ -1543,7 +1585,7 @@ export default function AgentChatPage() {
                         </button>
 
                         {isThoughtExpanded && (
-                          <div className="px-4 py-3 border-t text-xs leading-relaxed text-[#c4c7c5] max-h-48 overflow-y-auto whitespace-pre-wrap font-mono" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+                          <div className="px-4 py-3 border-t text-xs leading-relaxed text-[var(--muted)] max-h-48 overflow-y-auto whitespace-pre-wrap font-mono" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
                             {msg.thoughtTrace || 'The provider evaluated reasoning tokens without streaming raw trace text.'}
                           </div>
                         )}
@@ -1567,7 +1609,7 @@ export default function AgentChatPage() {
                     )}
 
                     {/* Primary Markdown Content */}
-                    <div className="text-[14px] leading-relaxed text-[#e3e3e3] font-sans">
+                    <div className="text-[14px] leading-relaxed text-[var(--foreground)] font-sans">
                       <Markdown text={msg.content} />
                     </div>
 
@@ -1621,13 +1663,13 @@ export default function AgentChatPage() {
                     )}
 
                     {/* Message Actions: Copy, Retry */}
-                    <div className="flex items-center gap-3 mt-1 text-xs text-[#9aa0a6]">
+                    <div className="flex items-center gap-3 mt-1 text-xs text-[var(--muted-foreground)]">
                       {!isUser && msg.id?.endsWith('-err') && (
                         <button
                           onClick={handleRetry}
                           disabled={loading}
                           aria-label="Retry failed reply"
-                          className="flex items-center gap-1 hover:text-white transition-colors"
+                          className="flex items-center gap-1 hover:text-[var(--foreground)] transition-colors"
                         >
                           <RotateCcw size={11} /> Retry
                         </button>
@@ -1635,7 +1677,7 @@ export default function AgentChatPage() {
                       <button
                         onClick={() => handleCopy(msg.content, msg.id || String(idx))}
                         aria-label="Copy message"
-                        className="flex items-center gap-1 hover:text-white transition-colors"
+                        className="flex items-center gap-1 hover:text-[var(--foreground)] transition-colors"
                       >
                         {copiedId === (msg.id || String(idx)) ? (
                           <>
@@ -1662,7 +1704,7 @@ export default function AgentChatPage() {
               <Sparkles size={16} />
             </div>
             <div className="flex-1 min-w-0 flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-xs text-[#9aa0a6] font-sans">
+              <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)] font-sans">
                 <span className="font-semibold text-white">Gemini</span>
                 <span>·</span>
                 <span className="text-blue-400 font-medium">Generating...</span>
@@ -1691,7 +1733,7 @@ export default function AgentChatPage() {
                 </div>
               )}
 
-              <div className="text-[14px] leading-relaxed text-[#e3e3e3] font-sans">
+              <div className="text-[14px] leading-relaxed text-[var(--foreground)] font-sans">
                 <Markdown text={streaming.text} />
                 <span
                   className="inline-block w-1.5 h-4 align-text-bottom ml-0.5 animate-pulse"
@@ -1708,7 +1750,7 @@ export default function AgentChatPage() {
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-600 flex items-center justify-center text-white flex-shrink-0 shadow">
               <Sparkles size={16} className="animate-spin" />
             </div>
-            <div className="flex items-center gap-2 text-xs text-[#9aa0a6] font-sans">
+            <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)] font-sans">
               <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
               <span>Thinking ({selectedModel.split('-')[0]} · {reasoningEffort})...</span>
             </div>
@@ -1730,7 +1772,7 @@ export default function AgentChatPage() {
               <span className="text-xs font-semibold text-blue-400 flex items-center gap-1.5 font-sans">
                 <Sparkles size={14} /> Quick Pipeline Tools
               </span>
-              <span className="text-[11px] text-[#9aa0a6] font-sans">Click to insert prompt</span>
+              <span className="text-[11px] text-[var(--muted-foreground)] font-sans">Click to insert prompt</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
@@ -1740,7 +1782,7 @@ export default function AgentChatPage() {
                   setShowQuickDrawer(false)
                   textareaRef.current?.focus()
                 }}
-                className="text-left p-2.5 rounded-xl border text-xs text-[#e3e3e3] hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
+                className="text-left p-2.5 rounded-xl border text-xs text-[var(--foreground)] hover:text-[var(--foreground)] hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
               >
                 <Clapperboard size={15} className="text-blue-400 flex-shrink-0" />
@@ -1753,7 +1795,7 @@ export default function AgentChatPage() {
                   setShowQuickDrawer(false)
                   textareaRef.current?.focus()
                 }}
-                className="text-left p-2.5 rounded-xl border text-xs text-[#e3e3e3] hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
+                className="text-left p-2.5 rounded-xl border text-xs text-[var(--foreground)] hover:text-[var(--foreground)] hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
               >
                 <Sparkles size={15} className="text-amber-400 flex-shrink-0" />
@@ -1766,7 +1808,7 @@ export default function AgentChatPage() {
                   setShowQuickDrawer(false)
                   textareaRef.current?.focus()
                 }}
-                className="text-left p-2.5 rounded-xl border text-xs text-[#e3e3e3] hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
+                className="text-left p-2.5 rounded-xl border text-xs text-[var(--foreground)] hover:text-[var(--foreground)] hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
               >
                 <Database size={15} className="text-emerald-400 flex-shrink-0" />
@@ -1779,7 +1821,7 @@ export default function AgentChatPage() {
                   setShowQuickDrawer(false)
                   textareaRef.current?.focus()
                 }}
-                className="text-left p-2.5 rounded-xl border text-xs text-[#e3e3e3] hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
+                className="text-left p-2.5 rounded-xl border text-xs text-[var(--foreground)] hover:text-[var(--foreground)] hover:bg-white/5 transition-colors flex items-center gap-2 font-sans"
                 style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
               >
                 <Wrench size={15} className="text-purple-400 flex-shrink-0" />
@@ -1810,7 +1852,7 @@ export default function AgentChatPage() {
               }
             }}
             placeholder="Ask Gemini or direct the pipeline..."
-            className="w-full bg-transparent border-0 outline-none text-[14px] resize-none placeholder:text-[#9aa0a6] text-[#e3e3e3] font-sans px-2 py-1 max-h-48 leading-relaxed"
+            className="w-full bg-transparent border-0 outline-none text-[14px] resize-none placeholder:text-[var(--muted-foreground)] text-[var(--foreground)] font-sans px-2 py-1 max-h-48 leading-relaxed"
           />
 
           {/* Capsule Bottom Row */}
@@ -1824,7 +1866,7 @@ export default function AgentChatPage() {
                 className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${
                   showQuickDrawer
                     ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
-                    : 'text-[#9aa0a6] hover:text-white border-white/10 hover:bg-white/5'
+                    : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] border-white/10 hover:bg-white/5'
                 }`}
               >
                 <Plus size={16} />
@@ -1834,50 +1876,72 @@ export default function AgentChatPage() {
                 <button
                   type="button"
                   onClick={() => setShowModelMenu(prev => !prev)}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs text-[#9aa0a6] hover:text-white hover:bg-white/5 border border-white/10 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-white/5 border border-white/10 transition-colors"
                   title="Change model / reasoning"
                 >
-                  <span>{selectedModel.split('-')[0]}</span>
+                  <span className="max-w-[150px] truncate">
+                    {currentModelInfo ? currentModelInfo.name.replace(/\s*\(.*?\)/, '') : selectedModel.split('-')[0]}
+                  </span>
                   <span className="text-[10px] text-blue-400">({reasoningEffort})</span>
                   <ChevronDown size={11} />
                 </button>
 
                 {showModelMenu && (
                   <div
-                    className="absolute bottom-full left-0 mb-2 w-72 p-3 rounded-2xl border shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                    className="absolute bottom-full left-0 mb-2 w-84 p-3 rounded-2xl border shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150"
                     style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
                   >
-                    <div className="text-[11px] font-semibold text-[#9aa0a6] uppercase tracking-wider mb-2">
-                      Intelligence Model
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-2 px-1">
+                      <span>Intelligence Models</span>
+                      <span className="text-[10px] text-gray-500 font-normal">{models.length} available</span>
                     </div>
-                    <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-1">
-                      {models.map(m => (
-                        <button
-                          key={m.id}
-                          onClick={() => {
-                            setSelectedModel(m.id)
-                            const info = findModel(models, m.id)
-                            if (info) setReasoningEffort(info.default_reasoning)
-                            setShowModelMenu(false)
-                          }}
-                          className={`text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-colors ${
-                            selectedModel === m.id
-                              ? 'bg-blue-600/20 text-blue-400 font-semibold border border-blue-500/30'
-                              : 'text-[#e3e3e3] hover:bg-white/5'
-                          }`}
-                        >
-                          <span className="truncate">{m.name}</span>
-                          {m.is_free && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
-                              Free
+
+                    <div className="flex flex-col gap-2.5 max-h-72 overflow-y-auto pr-1">
+                      {providerGroups.map(({ provider, list }) => (
+                        <div key={provider} className="rounded-xl bg-white/[0.02] border border-white/5 p-1.5">
+                          <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold text-gray-300 uppercase tracking-wider mb-1">
+                            <span
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: getProviderDotColor(provider) }}
+                            />
+                            <span>{provider}</span>
+                            <span className="text-[9px] text-gray-500 font-mono ml-auto">
+                              {list.length} {list.length === 1 ? 'model' : 'models'}
                             </span>
-                          )}
-                        </button>
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            {list.map(m => (
+                              <button
+                                key={m.id}
+                                onClick={() => {
+                                  setSelectedModel(m.id)
+                                  const info = findModel(models, m.id)
+                                  if (info) setReasoningEffort(info.default_reasoning)
+                                  setShowModelMenu(false)
+                                }}
+                                className={`text-left px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between transition-colors ${
+                                  selectedModel === m.id
+                                    ? 'bg-blue-600/20 text-blue-400 font-semibold border border-blue-500/30'
+                                    : 'text-[var(--foreground)] hover:bg-white/5'
+                                }`}
+                              >
+                                <span className="truncate pr-2">{m.name}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {m.is_free && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+                                      Free
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
 
                     <div className="mt-3 pt-3 border-t flex flex-col gap-1.5" style={{ borderColor: 'var(--border)' }}>
-                      <div className="text-[11px] font-semibold text-[#9aa0a6] uppercase tracking-wider">
+                      <div className="text-[11px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">
                         Reasoning Effort
                       </div>
                       <div className="flex rounded-lg p-0.5 border" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
@@ -1890,7 +1954,7 @@ export default function AgentChatPage() {
                             className={`flex-1 py-1 text-center text-[11px] rounded-md transition-all ${
                               reasoningEffort === tier
                                 ? 'bg-blue-600 text-white font-medium shadow-sm'
-                                : 'text-[#9aa0a6] hover:text-white'
+                                : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
                             }`}
                           >
                             {tier}
@@ -1911,7 +1975,7 @@ export default function AgentChatPage() {
                   if (!input) setInput('Direct Episode 2 of Arthur & Rusty with 5-scene retention pacing.')
                   textareaRef.current?.focus()
                 }}
-                className="w-8 h-8 rounded-full border border-white/10 hover:bg-white/5 text-[#9aa0a6] hover:text-white flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-full border border-white/10 hover:bg-white/5 text-[var(--muted-foreground)] hover:text-[var(--foreground)] flex items-center justify-center transition-colors"
                 title="Voice prompt"
               >
                 <Mic size={15} />
@@ -1946,7 +2010,7 @@ export default function AgentChatPage() {
         </div>
 
         {/* Gemini Disclaimer */}
-        <div className="text-center text-[11px] text-[#9aa0a6] mt-2 font-sans">
+        <div className="text-center text-[11px] text-[var(--muted-foreground)] mt-2 font-sans">
           Gemini AutoShorts may display inaccurate info. Verify pipeline manifests before dispatching.
         </div>
       </div>

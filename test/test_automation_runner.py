@@ -56,6 +56,58 @@ def test_dry_run_defaults_to_false_when_unset(monkeypatch):
     assert args.dry_run is False
 
 
+# ------------------------------------------------------- flowkit materials
+
+
+def test_flowkit_flags_default_off(monkeypatch):
+    monkeypatch.delenv("AUTOSHORTS_FLOWKIT_PROJECT", raising=False)
+    monkeypatch.delenv("AUTOSHORTS_FLOWKIT_MEDIA", raising=False)
+    args = runner._build_parser().parse_args([])
+    assert args.flowkit_project in (None, "")
+    assert args.flowkit_media == "auto"
+
+
+def test_flowkit_project_reaches_entries(monkeypatch):
+    import automation.flowkit_bridge as bridge
+
+    staged = [
+        bridge.StagedVideo(
+            path="t/00_scene.mp4", absolute_path="/abs/t/00_scene.mp4",
+            prompt="p", media_id="m",
+        )
+    ]
+    monkeypatch.setattr(
+        bridge, "stage_flowkit_project", lambda *a, **k: (staged, "Narration.")
+    )
+    monkeypatch.setattr(bridge, "ProjectScrubber", lambda: _AvailableScrubber())
+
+    entries = [{"video_subject": "Ep 1"}, {"video_subject": "Ep 2"}]
+    count = runner._attach_flowkit_materials(entries, "proj-1", "auto", "run-9")
+    assert count == 1
+    for entry in entries:
+        assert entry["video_source"] == "local"
+        assert entry["video_materials"] == [
+            {"provider": "flowkit", "url": "t/00_scene.mp4", "duration": 5}
+        ]
+
+
+def test_flowkit_staging_failure_raises(monkeypatch):
+    import automation.flowkit_bridge as bridge
+
+    def _boom(*a, **k):
+        raise bridge.FlowkitError("no completed media")
+
+    monkeypatch.setattr(bridge, "stage_flowkit_project", _boom)
+    monkeypatch.setattr(bridge, "ProjectScrubber", lambda: _AvailableScrubber())
+    with pytest.raises(ValueError, match="flowkit staging failed"):
+        runner._attach_flowkit_materials([{"video_subject": "x"}], "proj-1", "auto", "r")
+
+
+class _AvailableScrubber:
+    def available(self):
+        return True
+
+
 # ------------------------------------------------------------ summary parsing
 
 

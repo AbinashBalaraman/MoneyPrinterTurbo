@@ -149,6 +149,28 @@ async def run_assembly_cli(args: list[str], *, timeout: float = 1800.0) -> dict[
     return result
 
 
+async def run_bridge(args: list[str], *, timeout: float = 1200.0) -> dict[str, Any]:
+    """Run the FlowKit staging bridge (``automation/flowkit_bridge.py``).
+
+    Same interpreter as the assembly engine — the bridge imports ``app`` and
+    ``automation`` helpers, which only exist in that venv. Going through its
+    CLI rather than re-implementing staging here is what keeps one staging
+    standard instead of two.
+    """
+    if not Path(config.ASSEMBLY_PYTHON).exists():
+        raise OperationError(
+            f"Assembly interpreter not found at {config.ASSEMBLY_PYTHON}. "
+            f"Set ASSEMBLY_PYTHON in AutoShorts/.env."
+        )
+    result = await _run(
+        [config.ASSEMBLY_PYTHON, "-m", "automation.flowkit_bridge", *args],
+        cwd=WORKSPACE_ROOT,
+        timeout=min(timeout, COMMAND_TIMEOUT_MAX),
+    )
+    result["command"] = " ".join(["flowkit_bridge", *args])
+    return result
+
+
 async def run_shell(
     command: str, *, cwd: Optional[str] = None, timeout_s: float = COMMAND_TIMEOUT_DEFAULT
 ) -> dict[str, Any]:

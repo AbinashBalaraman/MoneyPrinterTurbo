@@ -21,11 +21,15 @@ from automation.flowkit_bridge import (
     FlowkitError,
     FlowkitImageSource,
     ImageAsset,
+    ProjectScrubber,
     StagedImage,
+    StagedVideo,
     _normalise_image,
     _slugify,
     apply_to_params,
+    fetch_project_scenes,
     stage_flowkit_images,
+    stage_flowkit_project,
 )
 
 FLOWKIT_URL = "http://127.0.0.1:8100"
@@ -459,7 +463,7 @@ def test_apply_to_params_switches_to_local_source():
 
 
 def test_apply_to_params_rejects_empty():
-    with pytest.raises(FlowkitError, match="no staged images"):
+    with pytest.raises(FlowkitError, match="no staged media"):
         apply_to_params({}, [])
 
 
@@ -538,12 +542,16 @@ def test_is_loopback_classification():
 
 
 class RecordingScrubber:
-    """Stand-in for GeminiWatermarkScrubber that records what it was given."""
+    """Stand-in for ProjectScrubber that records what it was given."""
 
     def __init__(self):
         self.calls = []
 
     def scrub(self, path):
+        self.calls.append(path)
+        return None
+
+    def scrub_video(self, path):
         self.calls.append(path)
         return None
 
@@ -676,6 +684,214 @@ def test_without_holds_nothing_is_pre_rendered(tmp_path):
     assert staged[0].rendered_clip is False
     assert staged[0].duration is None
     assert staged[0].path.endswith(".png")
+
+
+# --- project mode ----------------------------------------------------------
+
+
+def project_scene(order, image=True, video=False, narration=True):
+    scene = {
+        "id": f"scene-{order}",
+        "display_order": order,
+        "prompt": f"beat {order}",
+        "vertical_image_status": "COMPLETED" if image else "PENDING",
+        "vertical_image_url": "https://flow/still.png" if image else None,
+        "vertical_image_media_id": f"img-{order}",
+        "vertical_video_status": "COMPLETED" if video else "PENDING",
+        "vertical_video_url": "https://flow/clip.mp4" if video else None,
+        "vertical_video_media_id": f"vid-{order}",
+        "narrator_text": f"Beat {order}." if narration else None,
+    }
+    return scene
+
+
+def project_session(scenes, png=None, mp4=b"fake-mp4-bytes"):
+    return FakeSession(
+        get_routes=healthy_routes(
+            **{
+                "/api/projects/proj-1": FakeResponse(
+                    json_data={"id": "proj-1", "name": "Test Project"}
+                ),
+                "/api/videos?project_id=proj-1": FakeResponse(
+                    json_data=[{"id": "vid-1"}]
+                ),
+                "/api/scenes?video_id=vid-1": FakeResponse(json_data=scenes),
+                "still.png": FakeResponse(content=png if png is not None else make_image_bytes()),
+                "clip.mp4": FakeResponse(content=mp4),
+            }
+        )
+    )
+
+
+def test_fetch_project_scenes_sorts_by_display_order():
+    scenes = [project_scene(2), project_scene(0), project_scene(1)]
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session(scenes))
+    project, ordered = fetch_project_scenes(client, "proj-1")
+    assert project["name"] == "Test Project"
+    assert [s["display_order"] for s in ordered] == [0, 1, 2]
+
+
+def test_fetch_project_unknown_ref_fails():
+    session = FakeSession(
+        get_routes=healthy_routes(
+            **{"/api/projects/nope": FakeResponse(status_code=404, text="gone"),
+             "/api/projects": FakeResponse(json_data=[])} 
+        )
+    )
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=session)
+    with pytest.raises(FlowkitError, match="not found"):
+        fetch_project_scenes(client, "nope")
+
+
+def test_project_mode_prefers_video_over_still(tmp_path):
+    scenes = [project_scene(0, image=True, video=True)]
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session(scenes))
+    staged, narration = stage_flowkit_project(
+        "proj-1", "task-pv", source=client, local_videos_dir=tmp_path
+    )
+    assert len(staged) == 1
+    assert isinstance(staged[0], StagedVideo)
+    assert staged[0].path == "task-pv/00_scene.mp4"
+    assert (tmp_path / "task-pv" / "00_scene.mp4").exists()
+    assert narration == "Beat 0."
+    material = staged[0].as_material()
+    assert material["provider"] == "flowkit"
+    assert material["url"] == "task-pv/00_scene.mp4"
+
+
+def test_project_mode_falls_back_to_still(tmp_path):
+    scenes = [project_scene(0, image=True, video=False)]
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session(scenes))
+    staged, _ = stage_flowkit_project(
+        "proj-1", "task-ps", source=client, local_videos_dir=tmp_path
+    )
+    assert len(staged) == 1
+    assert isinstance(staged[0], StagedImage)
+    assert staged[0].path.endswith(".png")
+
+
+def test_project_mode_stills_only_skips_videos(tmp_path):
+    scenes = [project_scene(0, image=True, video=True)]
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session(scenes))
+    staged, _ = stage_flowkit_project(
+        "proj-1", "task-so", source=client, local_videos_dir=tmp_path, media="still"
+    )
+    assert len(staged) == 1
+    assert isinstance(staged[0], StagedImage)
+
+
+def test_project_mode_video_only_skips_stills(tmp_path):
+    scenes = [project_scene(0, image=True, video=False)]
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session(scenes))
+    with pytest.raises(FlowkitError, match="no completed videos"):
+        stage_flowkit_project(
+            "proj-1", "task-vo", source=client, local_videos_dir=tmp_path, media="video"
+        )
+
+
+def test_project_mode_rejects_bad_media_mode(tmp_path):
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session([]))
+    with pytest.raises(FlowkitError, match="unknown media mode"):
+        stage_flowkit_project("proj-1", "task-x", source=client, local_videos_dir=tmp_path, media="film")
+
+
+def test_project_mode_without_completed_media_fails(tmp_path):
+    scenes = [project_scene(0, image=False, video=False)]
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session(scenes))
+    with pytest.raises(FlowkitError, match="no completed media"):
+        stage_flowkit_project("proj-1", "task-e", source=client, local_videos_dir=tmp_path)
+
+
+def test_absolute_urls_keep_manifest_portable_outside_local_videos(tmp_path):
+    from automation.flowkit_bridge import _absolute_material_urls
+
+    staged = [
+        StagedVideo(
+            path="t/00_scene.mp4", absolute_path=str(tmp_path / "t" / "00_scene.mp4"),
+            prompt="p", media_id="m",
+        )
+    ]
+    params = apply_to_params({"video_clip_duration": 5}, staged)
+    assert params["video_materials"][0]["url"] == "t/00_scene.mp4"
+    _absolute_material_urls(params, staged)
+    assert params["video_materials"][0]["url"] == str(tmp_path / "t" / "00_scene.mp4")
+
+
+def test_project_materials_validate_as_materialinfo():
+    from app.models.schema import MaterialInfo
+
+    video = StagedVideo(
+        path="t/00_scene.mp4", absolute_path="/abs/t/00_scene.mp4",
+        prompt="p", media_id="m", scene_id="s",
+    )
+    model = MaterialInfo(**video.as_material())
+    assert model.provider == "flowkit"
+    assert model.url == "t/00_scene.mp4"
+
+
+# --- project scrubber (in-project engine) ----------------------------------
+
+
+def test_project_scrubber_loads_sce_engine():
+    scrubber = ProjectScrubber()
+    assert scrubber.STILL_PROFILE == "gemini_bottom_right"
+    assert scrubber.VIDEO_PROFILE == "veo_bottom_right"
+
+
+def test_project_scrubber_reports_ffmpeg_availability(monkeypatch):
+    import shutil
+
+    scrubber = ProjectScrubber()
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    assert scrubber.available() is False
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/ffmpeg")
+    assert scrubber.available() is True
+
+
+class FakeEngine:
+    """Stand-in for the SCE WatermarkScrubber."""
+
+    def __init__(self, ok=True, calls=None):
+        self.ok = ok
+        self.calls = calls if calls is not None else []
+
+    def scrub_video(self, src, dest, profile=""):
+        self.calls.append({"src": src, "dest": dest, "profile": profile})
+        if self.ok:
+            Path(dest).write_bytes(b"scrubbed")
+        return self.ok
+
+
+def test_project_scrubber_replaces_still_in_place(tmp_path, monkeypatch):
+    scrubber = ProjectScrubber.__new__(ProjectScrubber)
+    engine = FakeEngine()
+    object.__setattr__(scrubber, "_impl", engine)
+    target = tmp_path / "still.png"
+    target.write_bytes(b"original")
+    scrubber.scrub(target)
+    assert target.read_bytes() == b"scrubbed"
+    assert engine.calls[0]["profile"] == "gemini_bottom_right"
+
+
+def test_project_scrubber_uses_veo_profile_for_video(tmp_path):
+    scrubber = ProjectScrubber.__new__(ProjectScrubber)
+    engine = FakeEngine()
+    object.__setattr__(scrubber, "_impl", engine)
+    target = tmp_path / "clip.mp4"
+    target.write_bytes(b"original")
+    scrubber.scrub_video(target)
+    assert target.read_bytes() == b"scrubbed"
+    assert engine.calls[0]["profile"] == "veo_bottom_right"
+
+
+def test_project_scrubber_failure_is_loud_and_keeps_original(tmp_path):
+    scrubber = ProjectScrubber.__new__(ProjectScrubber)
+    object.__setattr__(scrubber, "_impl", FakeEngine(ok=False))
+    target = tmp_path / "still.png"
+    target.write_bytes(b"original")
+    with pytest.raises(FlowkitError, match="scrub failed"):
+        scrubber.scrub(target)
+    assert target.read_bytes() == b"original"
 
 
 

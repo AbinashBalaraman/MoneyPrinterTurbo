@@ -38,12 +38,9 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import requests
-
-if TYPE_CHECKING:
-    from automation.watermark_scrub import GeminiWatermarkScrubber
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +61,7 @@ DEFAULT_CLIP_DURATION = 5
 DEFAULT_TIMEOUT = 30.0
 DEFAULT_GENERATE_TIMEOUT = 180.0
 MAX_IMAGE_BYTES = 32 * 1024 * 1024
+MAX_VIDEO_BYTES = 500 * 1024 * 1024
 MAX_SLUG_LENGTH = 40
 
 
@@ -117,6 +115,27 @@ class StagedImage:
             "provider": "flowkit",
             "url": self.path,
             "duration": max(1, duration),
+        }
+
+
+@dataclass
+class StagedVideo:
+    """A downloaded FlowKit video sitting under ``storage/local_videos``."""
+
+    path: str
+    """Path relative to ``storage/local_videos`` — this is what goes in the material."""
+
+    absolute_path: str
+    prompt: str
+    media_id: str
+    scene_id: str = ""
+
+    def as_material(self, clip_duration: int = DEFAULT_CLIP_DURATION) -> dict[str, Any]:
+        """Same ``MaterialInfo`` shape as stills; the clip keeps its own length."""
+        return {
+            "provider": "flowkit",
+            "url": self.path,
+            "duration": max(1, int(clip_duration)),
         }
 
 
@@ -378,6 +397,41 @@ class FlowkitImageSource:
             dest.unlink(missing_ok=True)
             raise FlowkitError(f"image {asset.media_id} downloaded as an empty file")
 
+    def download_video(self, url: str, media_id: str, dest: Path) -> None:
+        """Stream one FlowKit video to ``dest``.
+
+        Same guards as stills with a video-sized cap. No format normalisation:
+        Flow serves mp4, which ``preprocess_video`` takes down its video branch.
+        The caller scrubs through ``ProjectScrubber`` (veo profile) before staging.
+        """
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        written = 0
+        try:
+            with self._session.get(url, stream=True, timeout=self.timeout) as resp:
+                if resp.status_code >= 400:
+                    raise FlowkitError(
+                        f"video download failed with HTTP {resp.status_code} for media {media_id}"
+                    )
+                with open(dest, "wb") as handle:
+                    for chunk in resp.iter_content(1024 * 1024):
+                        if not chunk:
+                            continue
+                        written += len(chunk)
+                        if written > MAX_VIDEO_BYTES:
+                            raise FlowkitError(
+                                f"video {media_id} exceeds {MAX_VIDEO_BYTES} bytes; refusing"
+                            )
+                        handle.write(chunk)
+        except requests.RequestException as exc:
+            raise FlowkitError(f"video download failed for media {media_id}: {exc}") from exc
+        except Exception:
+            dest.unlink(missing_ok=True)
+            raise
+
+        if written == 0:
+            dest.unlink(missing_ok=True)
+            raise FlowkitError(f"video {media_id} downloaded as an empty file")
+
 
 def _ensure_project_root_on_path() -> None:
     """Make ``import app`` work when this file is run as a script.
@@ -390,6 +444,66 @@ def _ensure_project_root_on_path() -> None:
     root = str(Path(__file__).resolve().parent.parent)
     if root not in sys.path:
         sys.path.insert(0, root)
+
+
+class ProjectScrubber:
+    """Watermark scrubbing through the project's own SCE engine.
+
+    Wraps ``shorts_content_engine/src/postprocess/watermark.py``
+    (ffmpeg delogo, no new dependencies) with the bridge's fail-loud
+    contract: ``available()`` gates the run up front, and a failed scrub
+    raises instead of shipping a watermarked material. Stills use the
+    ``gemini_bottom_right`` badge profile, videos the ``veo_bottom_right`` one.
+    """
+
+    STILL_PROFILE = "gemini_bottom_right"
+    VIDEO_PROFILE = "veo_bottom_right"
+
+    def __init__(self) -> None:
+        import importlib.util
+
+        module_path = (
+            Path(__file__).resolve().parent.parent
+            / "shorts_content_engine"
+            / "src"
+            / "postprocess"
+            / "watermark.py"
+        )
+        spec = importlib.util.spec_from_file_location("sce_watermark", module_path)
+        if spec is None or spec.loader is None:
+            raise FlowkitError(f"cannot load project scrubber from {module_path}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception:
+            sys.modules.pop(spec.name, None)
+            raise
+        self._impl = module.WatermarkScrubber()
+
+    def available(self) -> bool:
+        """True when ffmpeg is on PATH (the scrubber's only requirement)."""
+        return self._impl.is_ffmpeg_available()
+
+    def _scrub_in_place(self, path: Path, profile: str, kind: str) -> None:
+        tmp = path.with_name(f"{path.stem}.scrubbed{path.suffix}")
+        try:
+            ok = self._impl.scrub_video(str(path), str(tmp), profile=profile)
+        except Exception as exc:
+            tmp.unlink(missing_ok=True)
+            raise FlowkitError(f"{kind} scrub failed for {path.name}: {exc}") from exc
+        if not ok or not tmp.is_file() or tmp.stat().st_size == 0:
+            tmp.unlink(missing_ok=True)
+            raise FlowkitError(f"{kind} scrub failed for {path.name}: ffmpeg reported failure")
+        os.replace(tmp, path)
+
+    def scrub(self, image_path: Path) -> None:
+        """Scrub a still in place."""
+        self._scrub_in_place(Path(image_path), self.STILL_PROFILE, "still")
+
+    def scrub_video(self, video_path: Path) -> None:
+        """Scrub a video in place."""
+        self._scrub_in_place(Path(video_path), self.VIDEO_PROFILE, "video")
 
 
 def _local_videos_dir() -> Path:
@@ -430,7 +544,7 @@ def stage_flowkit_images(
     aspect_ratio: str = DEFAULT_ASPECT_RATIO,
     character_media_ids: Optional[Sequence[str]] = None,
     local_videos_dir: Optional[Path] = None,
-    scrubber: Optional["GeminiWatermarkScrubber"] = None,
+    scrubber: Optional["ProjectScrubber"] = None,
     holds: Optional[Sequence[float]] = None,
 ) -> list[StagedImage]:
     """Generate one still per prompt and stage it as a usable local material.
@@ -531,19 +645,174 @@ def stage_flowkit_images(
             client.close()
 
 
+def fetch_project_scenes(
+    client: FlowkitImageSource, project_ref: str
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Fetch a FlowKit project's scenes in story order over HTTP.
+
+    ``project_ref`` is a project id or an exact project name. Returns
+    (project, scenes) with scenes sorted by ``display_order``. This is the
+    read half of project mode; staging decides still-vs-video per scene.
+    """
+    ref = (project_ref or "").strip()
+    if not ref:
+        raise FlowkitError("project reference must be a project id or name")
+    client.require_ready()
+    try:
+        project = client._get(f"/api/projects/{ref}")
+    except FlowkitError:
+        project = None
+    if not project:
+        matches = [
+            p
+            for p in client._get("/api/projects")
+            if str(p.get("name", "")).strip().lower() == ref.lower()
+        ]
+        if not matches:
+            raise FlowkitError(f"FlowKit project not found: {ref!r}")
+        project = matches[0]
+    scenes: list[dict[str, Any]] = []
+    for video in client._get(f"/api/videos?project_id={project['id']}"):
+        scenes.extend(client._get(f"/api/scenes?video_id={video['id']}"))
+    scenes.sort(key=lambda s: s.get("display_order", 0))
+    return project, scenes
+
+
+def stage_flowkit_project(
+    project_ref: str,
+    task_id: str,
+    *,
+    clip_duration: int = DEFAULT_CLIP_DURATION,
+    source: Optional[FlowkitImageSource] = None,
+    local_videos_dir: Optional[Path] = None,
+    scrubber: Optional["ProjectScrubber"] = None,
+    media: str = "auto",
+) -> tuple[list[Any], str]:
+    """Stage one FlowKit project's completed media as local materials.
+
+    Per scene, in story order: a COMPLETED vertical video wins (``media``
+    ``auto`` or ``video``); otherwise the COMPLETED vertical still is
+    downloaded, scrubbed and staged (``auto`` or ``still``). Stills reuse the
+    same download guards, format normalisation and resolution checks as the
+    prompt path — one staging standard, not two.
+
+    Returns (staged, narration) where narration is the scenes'
+    ``narrator_text`` stitched in order, for manifests that omit a script.
+    """
+    if media not in ("auto", "video", "still"):
+        raise FlowkitError(f"unknown media mode {media!r}: use auto, video or still")
+    base_dir = Path(local_videos_dir) if local_videos_dir else _local_videos_dir()
+    base_dir.mkdir(parents=True, exist_ok=True)
+    task_dir = base_dir / task_id
+    task_dir.mkdir(parents=True, exist_ok=True)
+
+    owns_source = source is None
+    client = source or FlowkitImageSource()
+    try:
+        project, scenes = fetch_project_scenes(client, project_ref)
+        staged: list[Any] = []
+        narrations: list[str] = []
+        for order, scene in enumerate(scenes):
+            video_url = scene.get("vertical_video_url")
+            video_ok = scene.get("vertical_video_status") == "COMPLETED" and video_url
+            still_url = scene.get("vertical_image_url")
+            still_ok = scene.get("vertical_image_status") == "COMPLETED" and still_url
+            prompt = str(scene.get("prompt", ""))
+            if scene.get("narrator_text"):
+                narrations.append(str(scene["narrator_text"]).strip())
+            if media in ("auto", "video") and video_ok:
+                dest = task_dir / f"{order:02d}_scene.mp4"
+                client.download_video(
+                    video_url,
+                    scene.get("vertical_video_media_id", f"scene-{order}"),
+                    dest,
+                )
+                if scrubber is not None:
+                    scrubber.scrub_video(dest)
+                staged.append(
+                    StagedVideo(
+                        path=str(dest.relative_to(base_dir)).replace(os.sep, "/"),
+                        absolute_path=str(dest),
+                        prompt=prompt,
+                        media_id=str(scene.get("vertical_video_media_id", "")),
+                        scene_id=str(scene.get("id", "")),
+                    )
+                )
+            elif media in ("auto", "still") and still_ok:
+                asset = ImageAsset(
+                    media_id=str(scene.get("vertical_image_media_id", f"scene-{order}")),
+                    url=still_url,
+                    prompt=prompt,
+                )
+                raw = task_dir / f"{order:02d}_scene.download"
+                client.download(asset, raw)
+                stem = f"{order:02d}_{_slugify(prompt)}"
+                final, converted = _normalise_image(raw, task_dir, stem)
+                width, height = _image_size(final)
+                if (
+                    width < MIN_ACCEPTED_SIDE or height < MIN_ACCEPTED_SIDE
+                ):
+                    final.unlink(missing_ok=True)
+                    raise FlowkitError(
+                        f"staged still below {MIN_MATERIAL_DIMENSION}px: {width}x{height}"
+                    )
+                if scrubber is not None:
+                    scrubber.scrub(final)
+                staged.append(
+                    StagedImage(
+                        path=str(final.relative_to(base_dir)).replace(os.sep, "/"),
+                        absolute_path=str(final),
+                        prompt=prompt,
+                        media_id=asset.media_id,
+                        width=width,
+                        height=height,
+                        converted=converted,
+                    )
+                )
+            else:
+                logger.info("scene %d has no completed media; skipped", order)
+                continue
+            logger.info("staged %d/%d %s", order + 1, len(scenes), staged[-1].path)
+        if not staged:
+            want = "videos" if media == "video" else "stills" if media == "still" else "media"
+            raise FlowkitError(
+                f"project {project.get('name', project_ref)!r} has no completed {want} yet"
+            )
+        return staged, " ".join(n for n in narrations if n)
+    finally:
+        if owns_source:
+            client.close()
+
+
+def _absolute_material_urls(
+    params: dict[str, Any], staged: Sequence[StagedImage | StagedVideo]
+) -> dict[str, Any]:
+    """Point emitted materials at absolute file locations.
+
+    Staging keeps repo-relative paths (portable, and what the unit tests pin),
+    but ``cli.py --batch-file`` resolves relative material URLs against the
+    *manifest* directory — so a manifest outside ``storage/local_videos``
+    would point at files that do not exist. Absolute paths survive that
+    resolution and ``preprocess_video`` explicitly accepts them.
+    """
+    for material, item in zip(params.get("video_materials", []), staged):
+        material["url"] = item.absolute_path
+    return params
+
+
 def apply_to_params(
     params: dict[str, Any],
-    staged: Sequence[StagedImage],
+    staged: Sequence[StagedImage | StagedVideo],
     clip_duration: int = DEFAULT_CLIP_DURATION,
 ) -> dict[str, Any]:
-    """Point a ``VideoParams`` dict at the staged images.
+    """Point a ``VideoParams`` dict at the staged media.
 
     Mutates and returns ``params`` for convenience. ``video_source`` must be
     ``local`` — that is the branch in ``get_video_materials`` that reads
     ``video_materials`` instead of downloading stock footage.
     """
     if not staged:
-        raise FlowkitError("no staged images to apply")
+        raise FlowkitError("no staged media to apply")
     params["video_source"] = "local"
     params["video_materials"] = [image.as_material(clip_duration) for image in staged]
     return params
@@ -579,6 +848,17 @@ def _main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--task-id", default="flowkit-bridge", help="subdirectory under storage/local_videos")
     parser.add_argument("--clip-duration", type=int, default=DEFAULT_CLIP_DURATION)
     parser.add_argument(
+        "--from-project",
+        default=None,
+        help="stage completed media from a FlowKit project (id or name) instead of generating",
+    )
+    parser.add_argument(
+        "--media",
+        default="auto",
+        choices=("auto", "video", "still"),
+        help="with --from-project: prefer completed videos, stills only, or either (default: auto)",
+    )
+    parser.add_argument(
         "--aspect-ratio",
         default=DEFAULT_ASPECT_RATIO,
         help="flowkit aspect ratio enum (default PORTRAIT = 9:16)",
@@ -587,29 +867,26 @@ def _main(argv: Optional[Sequence[str]] = None) -> int:
         "--scrub",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="remove the Gemini/Flow watermark from each still (default: on)",
+        help="scrub Flow watermarks with the project's own engine (default: on)",
     )
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    # The scrubber lives in a sibling module, so the project root must be
-    # importable before it can be loaded. _local_videos_dir() does this too, but
-    # that runs later than this check.
+    # The scrubber is the project's own SCE engine (ffmpeg delogo), so the
+    # project root must be importable before it can be loaded.
     scrubber = None
     if args.scrub:
         _ensure_project_root_on_path()
-        from automation.watermark_scrub import (
-            GWR_PACKAGE,
-            GeminiWatermarkScrubber,
-        )
-
-        scrubber = GeminiWatermarkScrubber()
+        try:
+            scrubber = ProjectScrubber()
+        except FlowkitError as exc:
+            print(f"watermark scrubber failed to load: {exc}", file=sys.stderr)
+            return 1
         if not scrubber.available():
             print(
-                "watermark scrubber is enabled but unavailable. Install it with:\n"
-                f"  npm install {GWR_PACKAGE} sharp\n"
-                "or pass --no-scrub to generate watermarked stills deliberately.",
+                "watermark scrubber is enabled but ffmpeg was not found on PATH. "
+                "Install ffmpeg or pass --no-scrub to stage watermarked media deliberately.",
                 file=sys.stderr,
             )
             return 1
@@ -619,7 +896,14 @@ def _main(argv: Optional[Sequence[str]] = None) -> int:
     prompts: list[str] = []
     holds: Optional[list[float]] = None
     script_text = ""
+    from_project = args.from_project
     if not args.check:
+        if from_project and (args.storyboard or args.prompts_file):
+            print(
+                "pass either --from-project or --storyboard/--prompts-file, not both",
+                file=sys.stderr,
+            )
+            return 2
         if args.storyboard and args.prompts_file:
             print(
                 "pass either --storyboard or --prompts-file, not both "
@@ -662,8 +946,10 @@ def _main(argv: Optional[Sequence[str]] = None) -> int:
             if not prompts:
                 print(f"no prompts found in {prompts_path}", file=sys.stderr)
                 return 2
+        elif from_project:
+            pass
         else:
-            print("nothing to do: pass --storyboard, --prompts-file (or --check)", file=sys.stderr)
+            print("nothing to do: pass --from-project, --storyboard, --prompts-file (or --check)", file=sys.stderr)
             return 2
 
     client = FlowkitImageSource(base_url=args.url, project_id=args.project_id)
@@ -683,6 +969,13 @@ def _main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
 
     if args.dry_run:
+        if from_project:
+            print(f"\ndry run — would stage completed {args.media} media from project {from_project}")
+            print(f"  task dir:      storage/local_videos/{args.task_id}")
+            print(f"  scrub:         {'on' if scrubber else 'off'}")
+            if args.emit_params:
+                print(f"  params out:    {args.emit_params}")
+            return 0
         # Verify the whole plan before spending a single generation credit.
         print(f"\ndry run — would generate {len(prompts)} still(s)")
         if holds:
@@ -699,7 +992,37 @@ def _main(argv: Optional[Sequence[str]] = None) -> int:
             print(f"  params out:    {args.emit_params}")
         return 0
 
-    staged = stage_flowkit_images(
+    if from_project:
+        try:
+            staged, project_narration = stage_flowkit_project(
+                from_project,
+                args.task_id,
+                clip_duration=args.clip_duration,
+                source=client,
+                scrubber=scrubber,
+                media=args.media,
+            )
+        except FlowkitError as exc:
+            print(f"FAILED: {exc}", file=sys.stderr)
+            return 1
+        if project_narration and not script_text:
+            script_text = project_narration
+        params = apply_to_params({"video_clip_duration": args.clip_duration}, staged, args.clip_duration)
+        print(f"\nstaged {len(staged)} material(s) from project; video_source={params['video_source']}")
+        for item in staged:
+            print(f"  {item.path}")
+        if args.emit_params:
+            if script_text:
+                params["video_script"] = script_text
+            _absolute_material_urls(params, staged)
+            out = Path(args.emit_params)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(json.dumps([params], indent=2, ensure_ascii=False), encoding="utf-8")
+            print(f"\nparams written to {out}")
+            print(f"run it with:  python cli.py --batch-file {out}")
+        return 0
+    else:
+        staged = stage_flowkit_images(
         prompts,
         args.task_id,
         clip_duration=args.clip_duration,
@@ -720,6 +1043,7 @@ def _main(argv: Optional[Sequence[str]] = None) -> int:
     if args.emit_params:
         if script_text:
             params["video_script"] = script_text
+        _absolute_material_urls(params, staged)
         out = Path(args.emit_params)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps([params], indent=2, ensure_ascii=False), encoding="utf-8")

@@ -57,6 +57,7 @@ class ModelInfo:
     id: str
     name: str
     endpoint_type: str
+    provider: str = "Other"
     supported_reasoning: list[str] = field(default_factory=lambda: list(REASONING_TIERS_STANDARD))
     default_reasoning: str = "off"
     is_free: bool = False
@@ -81,6 +82,24 @@ def endpoint_path(endpoint_type: str) -> str:
     return path
 
 
+def resolve_model_provider(model_id: str) -> str:
+    """Return the primary provider segment name for a model."""
+    mid = (model_id or "").lower()
+    if mid.startswith("nvidia/") or "nemotron" in mid or "riva" in mid or "ising" in mid:
+        return "NVIDIA NIM"
+    if mid.startswith("gemini-") or mid.startswith("google/") or "gemini" in mid:
+        return "Google Gemini"
+    if mid.startswith("meta/") or "muse" in mid or "llama" in mid:
+        return "Meta"
+    if mid.startswith("openai/") or "gpt" in mid:
+        return "OpenAI"
+    if "deepseek" in mid:
+        return "DeepSeek"
+    if mid.startswith("mistralai/") or "mistral" in mid or "mixtral" in mid:
+        return "Mistral AI"
+    return "OpenCode / Community"
+
+
 def resolve_model_reasoning(model_id: str) -> tuple[list[str], str]:
     """Return ``(supported_tiers, default_tier)`` for a model id."""
     mid = (model_id or "").lower()
@@ -88,6 +107,8 @@ def resolve_model_reasoning(model_id: str) -> tuple[list[str], str]:
         return list(REASONING_TIERS_MUSE), "xhigh"
     if any(k in mid for k in ("deepseek-v4", "glm-5", "qwen", "mimo")):
         return list(REASONING_TIERS_STANDARD), "high"
+    if any(k in mid for k in ("nemotron-3.5", "reasoning", "550b")):
+        return list(REASONING_TIERS_STANDARD), "medium"
     if any(k in mid for k in ("nemotron", "ling", "llama", "mistral")):
         return list(REASONING_TIERS_NONE), "off"
     if any(k in mid for k in ("claude", "gpt-5", "gemini")):
@@ -115,13 +136,16 @@ def _builtin(
     is_free: Optional[bool] = None,
     vision: bool = True,
     source: str = "builtin",
+    provider: Optional[str] = None,
 ) -> ModelInfo:
     tiers, default = resolve_model_reasoning(model_id)
     free_flag = ("free" in model_id.lower()) if is_free is None else is_free
+    prov = provider or resolve_model_provider(model_id)
     return ModelInfo(
         id=model_id,
         name=name,
         endpoint_type=resolve_endpoint_type(model_id),
+        provider=prov,
         supported_reasoning=tiers,
         default_reasoning=default,
         is_free=free_flag,
@@ -131,21 +155,19 @@ def _builtin(
 
 
 #: Always present, so the dashboard has something usable when the network or
-#: the API key is unavailable. Includes top 10 fastest benchmarked NVIDIA NIM models & Google Gemini.
+#: the API key is unavailable. Segmented cleanly by providers.
 CANONICAL_FREE_MODELS: list[ModelInfo] = [
-    # Top 10 Fastest NVIDIA NIM & Nemotron Models (benchmarked live with latency)
-    _builtin("nvidia/riva-translate-4b-instruct-v2", "NVIDIA Riva Translate 4B (NIM · 410ms)", is_free=True),
-    _builtin("meta/muse-glimmer-30b", "Meta Muse Glimmer 30B (NIM · 549ms)", is_free=True),
+    # ── NVIDIA NIM & Nemotron Models ────────────────────────────────────
+    _builtin("nvidia/nemotron-3-ultra-550b-a55b", "NVIDIA Nemotron 3 Ultra 550B (NIM · Reasoning)", is_free=True),
     _builtin("nvidia/nemotron-3.5-lightning-30b-a3b", "NVIDIA Nemotron 3.5 Lightning (NIM · 668ms)", is_free=True),
     _builtin("nemotron-3.5-lightning-free", "NVIDIA Nemotron 3.5 Lightning (Free · 650ms)", is_free=True, vision=False),
-    _builtin("nvidia/ising-calibration-1.5-31b", "NVIDIA Ising Calibration 31B (NIM · 700ms)", is_free=True),
-    _builtin("meta/llama-3.2-11b-vision-instruct", "Meta Llama 3.2 11B Vision (NIM · 762ms)", is_free=True),
     _builtin("nvidia/nemotron-3-super-120b-a12b", "NVIDIA Nemotron 3 Super 120B (NIM · Fast)", is_free=True),
-    _builtin("openai/gpt-oss-20b", "OpenAI GPT OSS 20B (NIM · Fast)", is_free=True),
     _builtin("nemotron-3-ultra-free", "NVIDIA Nemotron 3 Ultra (Free)", is_free=True, vision=False),
-    _builtin("nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "NVIDIA Nemotron 3 Nano Omni (NIM)", is_free=True),
+    _builtin("nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "NVIDIA Nemotron 3 Nano Omni (NIM · 785ms)", is_free=True),
+    _builtin("nvidia/ising-calibration-1.5-31b", "NVIDIA Ising Calibration 31B (NIM · 700ms)", is_free=True),
+    _builtin("nvidia/riva-translate-4b-instruct-v2", "NVIDIA Riva Translate 4B (NIM · 342ms)", is_free=True),
 
-    # Google Gemini Models
+    # ── Google Gemini Models ────────────────────────────────────────────
     _builtin("gemini-2.5-flash", "Gemini 2.5 Flash (Google · Fast)", is_free=True),
     _builtin("gemini-2.5-pro", "Gemini 2.5 Pro (Google · Thinking)", is_free=True),
     _builtin("gemini-1.5-flash", "Gemini 1.5 Flash (Google · Fast)", is_free=True),
@@ -153,10 +175,17 @@ CANONICAL_FREE_MODELS: list[ModelInfo] = [
     _builtin("gemini-3.8-flash", "Gemini 3.8 Flash (Google · Ultra Fast)", is_free=True),
     _builtin("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite (Google)", is_free=True),
 
-    # General Free Models
-    _builtin("deepseek-v4-flash-free", "DeepSeek v4 Flash (Free)", is_free=True),
+    # ── Meta Models ─────────────────────────────────────────────────────
+    _builtin("meta/muse-glimmer-30b", "Meta Muse Glimmer 30B (NIM · 549ms)", is_free=True),
+    _builtin("meta/llama-3.2-11b-vision-instruct", "Meta Llama 3.2 11B Vision (NIM · 762ms)", is_free=True),
     _builtin("muse-spark-1.3-contributor-free", "Muse Spark 1.3 (Free · Meta)", is_free=True),
     _builtin("muse-spark-1.2-contributor-free", "Muse Spark 1.2 (Free · Meta)", is_free=True),
+
+    # ── OpenAI Models ───────────────────────────────────────────────────
+    _builtin("openai/gpt-oss-20b", "OpenAI GPT OSS 20B (NIM · 514ms)", is_free=True),
+
+    # ── DeepSeek & Community Models ─────────────────────────────────────
+    _builtin("deepseek-v4-flash-free", "DeepSeek v4 Flash (Free)", is_free=True),
     _builtin("mimo-v2.5-free", "Mimo v2.5 (Free)", is_free=True),
     _builtin("ling-3.0-flash-fin-free", "Ling 3.0 Flash (Free)", is_free=True, vision=False),
 ]
@@ -293,7 +322,8 @@ def build_request_payload(
             "messages": [{"role": m["role"], "content": m["content"]} for m in messages],
             "temperature": temperature,
         }
-        if reasoning_effort and reasoning_effort != "off":
+        is_direct = any(model_id.lower().startswith(p) for p in ("nvidia/", "meta/", "mistralai/", "openai/", "poolside/", "gemini-", "google/"))
+        if not is_direct and reasoning_effort and reasoning_effort != "off":
             payload["reasoningEffort"] = reasoning_effort
         return payload
 
