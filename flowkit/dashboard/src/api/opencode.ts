@@ -156,6 +156,16 @@ export function explainUpstreamError(raw: string): UpstreamExplanation | null {
     }
   }
 
+  if (type === 'FreeTierError' || /free tier can only be used from within opencode/i.test(message)) {
+    return {
+      title: "This free model only works inside OpenCode's own app",
+      hint:
+        'OpenCode refuses free-tier requests from other clients — this is their policy, not a local bug. ' +
+        'Switch to a Gemini model (gemini-3.8-flash) or any paid model.',
+      switchModel: true
+    }
+  }
+
   if (type === 'FreeUsageLimitError' || /free usage limit/i.test(message)) {
     return {
       title: 'The free quota for this model is used up',

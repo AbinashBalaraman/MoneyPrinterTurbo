@@ -564,7 +564,12 @@ export default function AgentChatPage() {
   // assistant acts on the pipeline through server tools instead of narrating
   // what the user should click. Spending and publishing stay server-gated
   const agentMode = true
-  const [selectedModel, setSelectedModel] = useState<string>('muse-spark-1.3-contributor-free')
+  // gemini-3.8-flash is the default because it routes through the configured
+  // GEMINI_API_KEY directly to Google and works out of the box. The
+  // muse-spark-*-free models are refused by OpenCode's free-tier policy from
+  // any client other than OpenCode itself (FreeTierError), so defaulting to
+  // one made every first message fail.
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.8-flash')
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort>('xhigh')
   // The catalogue is owned by the agent (/api/opencode/models). Keeping a
   // second copy in the bundle is exactly what drifted out of sync before.
