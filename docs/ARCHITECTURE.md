@@ -128,10 +128,13 @@ Every entry in the repository root, and what it is:
 | `tools/` | Developer utilities (npm repair, project consolidation) | Tooling |
 | `docs/` | Architecture, implementation plan, chat-UI review | Docs |
 | `HANDOFF.md` | Session-by-session handoff notes | Docs |
-| `vscode-agentmemory-ext/` | A vendored **VS Code extension** (was `agentMemory/`). Nothing to do with the assistant | ⚠️ Unrelated — see below |
-| `video_model/` | **`textanim`** — a separate Vite/TS web app | ⚠️ Not part of the pipeline |
-| `video_model_dev/` | **Stickman Universe** — a separate product (smaller copy) | ⚠️ Not part of the pipeline |
-| `video_model_quality/` | **Stickman Universe** — a separate product (larger copy) | ⚠️ Not part of the pipeline |
+
+> **Removed 2026-09-17 (owner-approved cleanup):** `vscode-agentmemory-ext/`
+> (vendored VS Code extension, unrelated to the assistant — its agent memory is
+> `flowkit/agent/services/agent_memory.py`, verified self-contained), and the
+> three side-projects `video_model/` (textanim), `video_model_dev/` and
+> `video_model_quality/` (Stickman Universe copies). All recoverable from git
+> history. The originals also remain in `Projects/` per the vendoring design.
 
 ### Naming rules
 
@@ -148,9 +151,8 @@ These exist because the names were the single biggest source of confusion.
    `conversations/`). It is deliberately **not** under `.workbuddy-ai/`, which is
    protected project data, and deliberately **not** near `vscode-agentmemory-ext/`
    (was `agentMemory/`), which is an unrelated VS Code extension.
-3. **`video_model*`** are *not* video models in the pipeline sense. They are
-   standalone side-projects. They are not git-tracked, so they cannot be
-   recovered if deleted — decide their fate deliberately, not casually.
+3. ~~**`video_model*`**~~ **Removed 2026-09-17** — they were standalone
+   side-projects, not pipeline components.
 
 ### Recently removed
 
@@ -185,10 +187,8 @@ See [`IMPLEMENTATION.md`](./IMPLEMENTATION.md) §4 for the full tool surface.
 - **`main.py`** (MoneyPrinterTurbo's FastAPI app) appears unused by the pipeline —
   `automation/` calls `cli.py`, not the HTTP API. Confirm before removing; the
   dashboard does not talk to it.
-- **`video_model*`** — three untracked side-projects. `video_model_dev/` and
-  `video_model_quality/` are two copies of the same "Stickman Universe" project.
-  Needs a decision, not a guess.
-- **`vscode-agentmemory-ext/`** ✅ renamed 2026-09-15 (was `agentMemory/`) so it
-  cannot be confused with the assistant's memory.
+- ~~**`video_model*`**~~ **Resolved 2026-09-17:** deleted with owner approval.
+- ~~**`vscode-agentmemory-ext/`**~~ **Resolved 2026-09-17:** deleted with owner
+  approval.
 - **`opencode_endpoint/`** — legacy reference only (README marked). Source of truth
   is `flowkit/agent/services/opencode_models.py`.

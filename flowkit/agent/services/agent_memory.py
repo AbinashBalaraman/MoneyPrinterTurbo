@@ -15,10 +15,9 @@ It was originally under ``AutoShorts/.workbuddy-ai/agent/``, which was a mistake
 that folder is *protected project data*, and this environment's safe-delete shim
 refuses deletions inside it. Deleting a conversation is an ordinary user action
 (``DELETE /api/agent/conversations/{id}``), so it must not live somewhere that
-blocks deletion — it produced a 500 on every delete. The other reason to avoid
-it is that it was also chosen to dodge a collision with the vendored VS Code
-extension at ``AutoShorts/vscode-agentmemory-ext/``; keeping runtime state out of that tree
-entirely solves both.
+blocks deletion — it produced a 500 on every delete. (A third reason, dodging a
+collision with the since-removed vendored VS Code extension, no longer applies:
+that extension was deleted from the repo on 2026-09-17.)
 """
 
 from __future__ import annotations

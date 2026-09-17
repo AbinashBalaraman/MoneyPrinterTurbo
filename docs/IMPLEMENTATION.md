@@ -84,12 +84,16 @@ engine" from "entry point for the media server".
 
 ### 1.4 Three video-model directories
 
-`video_model/` (29 files), `video_model_dev/` (167), `video_model_quality/` (517).
-No README says which is used or when.
+~~`video_model/` (29 files), `video_model_dev/` (167), `video_model_quality/`
+(517).~~ **Resolved 2026-09-17:** all three deleted with owner approval; they
+were standalone side-projects unreferenced by the pipeline. Recoverable from
+git history.
 
 ### 1.5 A name collision on memory
 
-- `agentMemory/` — a **vendored VS Code extension**, unrelated to the assistant.
+- ~~`agentMemory/` — a **vendored VS Code extension**, unrelated to the
+  assistant.~~ **Removed 2026-09-17** (owner-approved cleanup; recoverable from
+  git history).
 - `flowkit/agent_data/` — the assistant's real memory (`memory.md`,
   `conversations/`).
 
@@ -443,25 +447,8 @@ reported the level correctly; `generate_episode` was refused by the gate.
 ### Phase 5 — Retire the duplicate UI · ✅ DONE for webui
 - ✅ `webui/` (Streamlit, 7,620 lines) + `webui.bat` + `webui.sh` deleted via
   `git rm`, so they are recoverable from history. Verified nothing imported it.
-- ⚠️ **`video_model*` — needs your decision, not mine.** I checked, and they are
-  *not* useless, so I did not delete them:
-
-  | Path | What it actually is |
-  |---|---|
-  | `video_model/` | A different project entirely — `textanim`, a Vite/TypeScript web app (29 files) |
-  | `video_model_dev/` | **Stickman Universe** — a separate product, *smaller copy* (167 files) |
-  | `video_model_quality/` | **Stickman Universe** — a separate product, *larger copy* (517 files) |
-
-  `video_model_dev/` and `video_model_quality/` have **identical `PROJECT.md`
-  headers** — they are two copies of one project ("text-to-stickman-video
-  product"). None of the three is referenced by any live AutoShorts code.
-
-  **Why I stopped:** they are **not git-tracked**, so deleting them is
-  unrecoverable — and "Stickman Universe" may be the engine behind the
-  `Stickman Legends` FlowKit project, which would make it wanted. My
-  recommendation: keep `video_model_quality/` (the larger, later copy), delete
-  `video_model_dev/`, and move both survivors out of the repo root into
-  `side-projects/`. **Your call.**
+- ✅ `video_model*` — **resolved 2026-09-17:** all three deleted with owner
+  approval (recoverable from git history and from the originals in `Projects/`).
 
 ### Phase 6 — Guard the boundaries · ✅ DONE
 `tools/check_boundaries.py` — 5 rules, each mapping to a bug that actually

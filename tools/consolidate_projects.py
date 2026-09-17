@@ -2,8 +2,13 @@
 """Vendor the sibling sub-projects into AutoShorts as one consolidated tree.
 
 AutoShorts is the single working project. Everything else (flowkit,
-shorts_content_engine, the video_model* trees, ...) becomes a vendored
-sub-directory inside it rather than a separate project folder.
+shorts_content_engine, ...) becomes a vendored sub-directory inside it
+rather than a separate project folder.
+
+Removed from the vendor list (2026-09-17, owner-approved cleanup): the
+video_model* side-projects and the vscode-agentmemory-ext VS Code
+extension. They live only in their original Projects/ folders and in git
+history; do not re-add them here.
 
 What this does
 --------------
@@ -47,15 +52,7 @@ SOURCES = [
     "flowkit",
     "shorts_content_engine",
     "opencode_endpoint",
-    "video_model",
-    "video_model_dev",
-    "video_model_quality",
     "content_creation",
-    # Renamed from "agentMemory" -> "vscode-agentmemory-ext" to avoid collision
-    # with flowkit/agent_data assistant memory. Original source was
-    # Projects/agentMemory; dest is now vscode-agentmemory-ext (already present,
-    # so future runs SKIP instead of re-vendoring the old name).
-    "vscode-agentmemory-ext",
 ]
 
 EXCLUDE_DIRS = {
