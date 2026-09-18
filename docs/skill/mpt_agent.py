@@ -37,6 +37,7 @@ SUPPORTED_SOURCES = {
     # Keep this list aligned with ``_CLI_VIDEO_SOURCES`` in cli.py. A source that
     # the CLI accepts must not be rejected here as unsupported.
     "openai_image",
+    "cf_worker",
     "local",
 }
 VOLCENGINE_ARK_API_KEY_URL = (
@@ -424,6 +425,12 @@ def missing_config(config_path: Path, cli_args: list[str]) -> tuple[str, list[st
         for field in ("openai_image_base_url", "openai_image_model"):
             if not _has_configured_value(_plain_config_value(text, field)):
                 missing.append(field)
+    elif source == "cf_worker":
+        # 与运行时的 generate_images_cf_worker 保持一致：端点自带内置默认值，
+        # Key 允许为空（为空时不发送 Authorization 头）。两者都不是必填项，
+        # 这里显式落空，避免落到下面的通用分支去查找并不存在的
+        # cf_worker_api_keys 而误报缺失。
+        pass
     elif source != "local":
         value = _plain_config_value(text, f"{source}_api_keys")
         if not _has_configured_value(value):
