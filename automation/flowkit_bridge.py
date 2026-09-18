@@ -195,6 +195,30 @@ def _normalise_image(source: Path, dest_dir: Path, stem: str) -> tuple[Path, boo
     return target, True
 
 
+def _download_error(kind: str, status: int, media_id: str) -> str:
+    """Explain a failed media download in terms the caller can act on.
+
+    Flow serves media through **signed, expiring URLs**. The database keeps a
+    scene marked COMPLETED with its URL, but that URL stops working a few days
+    after generation — measured on this project: `Expires` about five days
+    before "now", and a plain `curl` of the same URL also returns 403.
+
+    So a 403 here almost always means the media is no longer reachable, not that
+    anything is misconfigured, and the fix is to regenerate the scene rather
+    than to go looking at credentials. Saying that plainly matters because this
+    runs unattended: "HTTP 403" invites a hunt in the wrong place.
+    """
+    if status == 403:
+        return (
+            f"{kind} download refused (HTTP 403) for media {media_id}: Flow's "
+            f"signed URL has almost certainly expired. Completed media stays in "
+            f"the database but stops being downloadable after a few days. "
+            f"Regenerate this scene's {kind} in FlowKit, or stage a project whose "
+            f"media was generated recently."
+        )
+    return f"{kind} download failed with HTTP {status} for media {media_id}"
+
+
 class FlowkitImageSource:
     """Thin client for the flowkit agent's image endpoints.
 
@@ -375,7 +399,7 @@ class FlowkitImageSource:
             with self._session.get(asset.url, stream=True, timeout=self.timeout) as resp:
                 if resp.status_code >= 400:
                     raise FlowkitError(
-                        f"image download failed with HTTP {resp.status_code} for media {asset.media_id}"
+                        _download_error("image", resp.status_code, asset.media_id)
                     )
                 with open(dest, "wb") as handle:
                     for chunk in resp.iter_content(65536):
@@ -410,7 +434,7 @@ class FlowkitImageSource:
             with self._session.get(url, stream=True, timeout=self.timeout) as resp:
                 if resp.status_code >= 400:
                     raise FlowkitError(
-                        f"video download failed with HTTP {resp.status_code} for media {media_id}"
+                        _download_error("video", resp.status_code, media_id)
                     )
                 with open(dest, "wb") as handle:
                     for chunk in resp.iter_content(1024 * 1024):
@@ -663,13 +687,39 @@ def fetch_project_scenes(
     except FlowkitError:
         project = None
     if not project:
+        projects = client._get("/api/projects")
         matches = [
             p
-            for p in client._get("/api/projects")
+            for p in projects
             if str(p.get("name", "")).strip().lower() == ref.lower()
         ]
         if not matches:
-            raise FlowkitError(f"FlowKit project not found: {ref!r}")
+            # A bare "not found" is unhelpful when the reference is a near miss.
+            # "farmer_and_rusty" does not resolve, because the project is really
+            # called "farmer_and_rusty - Ep 1: The Whispering Furrow" -- which is
+            # exactly the name someone would write in flowkit_project. Name the
+            # prefix matches and list what does exist, so the fix is one step
+            # rather than a round of API poking.
+            #
+            # Deliberately a suggestion, not an auto-resolve: silently picking a
+            # project from a prefix is how a run stages the wrong episode.
+            available = sorted(
+                str(p.get("name", "")).strip() for p in projects if p.get("name")
+            )
+            prefix = [
+                name for name in available if name.lower().startswith(ref.lower())
+            ]
+            hint = (
+                f" Did you mean {', '.join(repr(n) for n in prefix)}?"
+                if prefix
+                else ""
+            )
+            listing = "; ".join(available) if available else "none"
+            raise FlowkitError(
+                f"FlowKit project not found: {ref!r}.{hint} "
+                f"Available projects: {listing}. "
+                f"Pass an exact project id or name."
+            )
         project = matches[0]
     scenes: list[dict[str, Any]] = []
     for video in client._get(f"/api/videos?project_id={project['id']}"):
