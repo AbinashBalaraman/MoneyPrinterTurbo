@@ -1,10 +1,13 @@
 # AutoShorts — Handoff
 
-**Written:** 2026-09-15 · **Head:** `e8f9c59` on branch `automation`
-**State:** running, green, and **nothing is blocked on code.** Three items need
-the owner's decision — §7.
+**Written:** 2026-09-15 · **Last updated:** 2026-09-18 (upstream merge — see §11)
+**Head:** `main`, and `main` is now the **only** branch. `automation` was deleted
+on 2026-09-18 (it was fully contained in `main`).
+**State:** `main` is a **superset of upstream MoneyPrinterTurbo** — upstream
+`fdcf249` was merged in, so every file and feature upstream ships is present.
+Test suite green. Publishing is off; **spend is ON** (§12).
 **Audience:** any agent (or person) picking this up cold. Everything needed is in
-this file or in the four docs it points to.
+this file or in the docs it points to.
 
 ---
 
@@ -75,8 +78,12 @@ a wrong interpreter.
 ### Tests
 
 ```bash
+# MoneyPrinterTurbo: assembly engine, providers, config, WebUI
+.venv/Scripts/python.exe -m pytest test/ -q
+#   1427 passed / 19 skipped / 0 failed
+
 cd flowkit && <flowkit-python> -m pytest tests/unit -q
-#   557 passed / 14 failed / 0 errors   (see §6 for the 14)
+#   595 passed / 4 failed   (the 4 are test-isolation, see §6)
 
 cd shorts_content_engine && <pipeline-python> -m pytest tests/unit -q
 #   169 passed / 0 failed
@@ -84,6 +91,10 @@ cd shorts_content_engine && <pipeline-python> -m pytest tests/unit -q
 <flowkit-python> tools/check_boundaries.py
 #   boundary check passed — 5 rule(s) upheld
 ```
+
+> Running the whole `test/` tree in a single process has hung twice (25 min+, no
+> output). Running `test/services` and `test/*.py` as two commands finishes in
+> ~9 min and covers exactly the same tests. Prefer the split.
 
 ### The four docs
 
@@ -240,8 +251,12 @@ yet for HTTP.
 - `docs/ARCHITECTURE.md` written — every claim checked against the tree.
 - `src/flowkit/` → `src/render_client/`, 16 files + the test file renamed.
   **Acceptance: SCE stayed at 169 passed.**
-- Streamlit `webui/` (7,620 lines) deleted via `git rm` (recoverable). Its two
-  apparent dependants were both false positives — a comment and a string literal.
+- Streamlit `webui/` was deleted via `git rm` in the 2026-09-15 session, then
+  **restored in full on 2026-09-18** during the upstream merge, together with
+  `webui.bat` and `webui.sh`. Abi asked for the complete MoneyPrinterTurbo
+  feature set, and the WebUI is its headline GUI. `streamlit 1.59.1` is already
+  installed in the assembly venv. Reverting is one commit if it turns out to be
+  unwanted.
 - `tools/check_boundaries.py` — 5 rules, each mapping to a bug that happened.
   **Verified it is not a rubber stamp** (injected a rogue `@operation`, it fired).
 - **The 9 dead `test_result_handler.py` tests now run.** They errored on
@@ -258,27 +273,65 @@ yet for HTTP.
   report.
 - `Stickman Legends: Neon Overdrive` — 6 scenes generated **without** reference
   conditioning. Needs the fix in §7.2.
-- **Video generation is stopped** at Abi's request: 0 pending, 0 processing. The
-  6 `GENERATE_VIDEO` failures are `PUBLIC_ERROR_MODEL_ACCESS_DENIED` — the Google
-  account lacks Veo access. **Not retryable; no code path works around it.** This
-  is the only genuinely blocked item and it is blocked on an account, not code.
+- **Video generation works. The earlier "no Veo access" conclusion was wrong and
+  is superseded — do not quote it as current state.** Verified 2026-09-18
+  directly from `flowkit/flow_agent.db`:
+  - 7 `GENERATE_VIDEO` **FAILED**, all dated **2026-09-13**, with
+    `RpcError: eb1hJf failed: [7, ... PUBLIC_ERROR_MODEL_ACCESS_DENIED]`.
+  - 1 `GENERATE_VIDEO` **COMPLETED** — `417f2848-…`, created
+    `2026-09-16T17:52:36Z`, finished `17:53:48Z` (**72s**), media
+    `47d3a25a-…`, real signed Flow URL.
+
+  The success is three days *newer* than the denials, so the account can generate
+  video. An agent that believes the old denial will generate stills only, which
+  produces exactly the looped-footage defect noted in §11.
+- **Open hypothesis, not a finding:** the 6 denials share an identical
+  `created_at` (a simultaneous burst), while the success was a *single* request.
+  If the denial was burst/concurrency-shaped rather than account-level, ~6
+  parallel video requests per episode will fail again. Untested — worth one call
+  before any batch run.
 - One polling timeout remains unexplained: *"Extension manifest must request
   permission to access the respective host."* Needs the live Flow tab URL to pin
   down which host. **Not guessed** — do not invent a cause.
 
 ---
 
-## 6. The 14 remaining test failures — all pre-existing, none from this work
+## 6. Test status
 
-| Count | File | Cause |
-|---|---|---|
-| 13 | `test_video_reviewer.py` | contact-sheet chunking expectations |
-| 1 | `test_cli_providers.py` | prompt-branching wording |
+**Green as of 2026-09-18.**
 
-They are byte-identical to the baseline before any of this session's work. They
-are real bugs in those areas, not flakes — but they are in code paths the
-pipeline does not currently use (video review, CLI provider prompts). Fixing them
-is a good next task if nothing else is pressing.
+| Suite | Result |
+|---|---|
+| `test/` (MoneyPrinterTurbo) | **1427 passed / 19 skipped / 0 failed** |
+| `flowkit/tests/unit` | 595 passed / **4 failed** — test isolation, below |
+| `shorts_content_engine/tests/unit` | 169 passed / 0 failed |
+| `tools/check_boundaries.py` | 5 rules upheld |
+
+The older "14 remaining failures" (`test_video_reviewer.py` ×13,
+`test_cli_providers.py` ×1) were fixed during the 2026-09-15 session.
+
+### The 4 flowkit failures are test isolation, not code
+
+All four are in `test_opencode_api.py`, all in the *"without a key"* cases, and
+they fail **because `OPENCODE_API_KEY` is set in `.env`** — `agent/config.py`
+loads it at import time. They would pass in CI and fail on any machine with a
+working key. Fix: monkeypatch the key to empty in those tests.
+
+### The 7 merge-surfaced failures — both resolved
+
+Classified by running the same tests in a git worktree at the pre-merge commit
+(`fcdb6e3`):
+
+- **6 were pre-existing on `main`.** The fork added the `nvidia_nim` and
+  `opencode` providers and changed the Gemini default without finishing the
+  integration, which tripped upstream's registry/config consistency tests (5 in
+  `test_llm.py`, 1 in `test_config.py`). Fixed in `bca271f`.
+- **1 was genuinely new.** Upstream's
+  `test_supported_sources_match_the_cli_video_source_list` did not exist before
+  the merge. It caught a real pre-existing fork bug: `cf_worker` was in
+  `cli.py::_CLI_VIDEO_SOURCES` but missing from
+  `docs/skill/mpt_agent.py::SUPPORTED_SOURCES`, so the agent skill would reject a
+  source the CLI accepts. Fixed in `d3b59b8`.
 
 ---
 
@@ -286,23 +339,13 @@ is a good next task if nothing else is pressing.
 
 ### 7.1 Decisions only Abi can make
 
-**(a) `video_model*` — three untracked side-projects.** Not referenced by any
-live code. **Not git-tracked, so deletion is unrecoverable.**
-
-| Path | What it actually is |
-|---|---|
-| `video_model/` | A different project — `textanim`, a Vite/TS web app (29 files) |
-| `video_model_dev/` | **Stickman Universe**, smaller copy (167 files) |
-| `video_model_quality/` | **Stickman Universe**, larger copy (517 files) |
-
-`_dev` and `_quality` have **identical `PROJECT.md` headers** — two copies of one
-product ("text-to-stickman-video product"). Abi said "delete useless"; the
-investigation showed they are not useless, so nothing was deleted.
-
-**Recommendation:** keep `video_model_quality/`, delete `video_model_dev/`, move
-survivors to `side-projects/`. **Ask before acting** — "Stickman Universe" may be
-the engine behind the `Stickman Legends` FlowKit project, which would make it
-wanted.
+**(a) ~~`video_model*` — three untracked side-projects.~~ Superseded
+2026-09-18.** Commit `0f1ba7e` (`chore: remove side-projects, debug artifacts,
+and generated media`) already deleted `video_model/`, `video_model_dev/`,
+`video_model_quality/` and `agentMemory/`. None are present in the tree any more,
+so this decision no longer has anything to act on. Worth confirming with Abi only
+if the "Stickman Universe" engine behind the `Stickman Legends` project turns out
+to be wanted after all.
 
 **(b) The 3 orphan character rows.** In `flow_agent.db`, three name pairs exist.
 In each, one row has a reference image and is referenced by a request; the other
@@ -330,8 +373,9 @@ history `f207698`, and two GitHub PATs in `FamilyTree/.git/config` and
 3. The conditioning report goes clean once the new images record their
    conditioning.
 
-Step 2 costs image-generation calls, so it has **not** been done. Enable with
-`AGENT_ALLOW_SPEND=1` (or the SCE CLI) when Abi says go.
+Step 2 costs image-generation calls, so it has **not** been done. `AGENT_ALLOW_SPEND`
+is now `1` (§12), so the gate this section was waiting on is open — but the work
+still has not been run. It needs Abi's go-ahead on the spend, not on the flag.
 
 ### 7.3 Code work that needs no decision
 
@@ -386,8 +430,10 @@ Step 2 costs image-generation calls, so it has **not** been done. Enable with
   DB.
 - **`flowkit/` and `shorts_content_engine/` are untracked** (vendored) — `git
   status` will not show changes inside them.
-- **`git status` currently shows 18 staged deletions** — the `webui/` removal.
-  Recover with `git checkout HEAD -- webui webui.bat webui.sh`.
+- **The `webui/` removal has been undone.** As of 2026-09-18 `webui/`,
+  `webui.bat` and `webui.sh` are all present again, restored from upstream during
+  the merge. The old recovery advice (`git checkout HEAD -- webui webui.bat
+  webui.sh`) no longer applies.
 
 ---
 
@@ -407,8 +453,10 @@ Step 2 costs image-generation calls, so it has **not** been done. Enable with
 
 Project memory (session-by-session reasoning) is in
 `AutoShorts/.workbuddy-ai/memory/` — `2026-09-13.md`, `2026-09-14.md`,
-`2026-09-15.md`, and `MEMORY.md` for durable conventions. It records *why*
-decisions were made, including the ones that were wrong first.
+`2026-09-15.md`, `2026-09-18.md`, and `MEMORY.md` for durable conventions. It
+records *why* decisions were made, including the ones that were wrong first.
+Note there is **no log for 09-16 or 09-17** — §11 is the only record of that
+work.
 
 ---
 
@@ -425,7 +473,7 @@ character afterwards would make an un-conditioned image look fine.
 
 ---
 
-## 10. 2026-09-16/17 — MoneyPrinterTurbo + FlowKit integration
+## 11. 2026-09-16/17 — MoneyPrinterTurbo + FlowKit integration
 
 ### What changed
 
@@ -523,3 +571,76 @@ more Flow video clips or shorten narration to avoid that repeat.
    owner-approved generated/cache content.
 4. Commit source changes separately from generated DBs, conversations, media,
    and test outputs.
+
+---
+
+## 12. 2026-09-18 — upstream merge, one branch, and live switch state
+
+### One branch
+
+`main` is now the **only** branch. `automation` was deleted because it was
+**fully contained** in `main` — no work was lost. Do not recreate per-feature
+branches; Abi wants everything on `main`.
+
+### Upstream merged
+
+`main` merged upstream `fdcf249` (65 commits), so the fork is now a **superset of
+upstream**. Verified: `git diff --name-status main fdcf249 --diff-filter=A`
+returns nothing.
+
+New upstream features now present: VoxCPM voice cloning, MuAPI material source,
+Fluxion AI + API Route LLM providers, Catalan WebUI locale, plus CLI fixes
+(subtitle display/animation, clip speed, AI music prompt, two-thirds subtitle
+position, ElevenLabs BGM mode, zoom transitions).
+
+All 14 conflicts were `webui/` modify/delete; resolved by restoring `webui/` in
+full (§4). Backup refs: `backup-pre-upstream-merge-2026-09-18` (`fcdb6e3`) and
+`backup-automation-9284c8f` (`9284c8f`).
+
+**Lesson worth keeping.** Restoring the directory was *not* enough: `webui.bat`
+and `webui.sh` stayed deleted, because we deleted them and upstream never
+modified them — git treats that as delete/delete, a **non-conflict**, and drops
+them with no warning. The conflict list is not a completeness check. After every
+upstream merge, run:
+
+```bash
+git diff --name-status main <upstream-sha> --diff-filter=A
+```
+
+It lists files upstream has that `main` does not.
+
+### Live switches — read before running anything
+
+| Switch | Value | Meaning |
+|---|---|---|
+| `AGENT_ALLOW_SPEND` | `1` | **Spend operations are NOT refused.** The assistant can burn image/video credits. |
+| `AUTOSHORTS_DRY_RUN` | `true` | |
+| `UPLOAD_POST_ENABLED` | `false` | Publishing is off |
+| `UPLOAD_POST_AUTO_UPLOAD` | `false` | Publishing is off |
+
+**Spend is open, publishing is closed.** Do not describe the spend gate as
+closed, and do not weaken the publish flags without telling Abi.
+
+### Not pushed — and why
+
+`main` has **not** been pushed. `origin/main` is still at `c72f08c` (an old
+upstream point); pushing would be a clean fast-forward.
+
+A pre-push secret scan found a Google API key (`AIzaSy…`) hardcoded in three
+**tracked** files:
+
+- `flowkit/extension/background.js` — `const API_KEY = 'AIzaSy…'`
+- `flowkit/agent/config.py` — the fallback default for `GOOGLE_API_KEY`
+- `flowkit/PLAN.md` — documented as the Flow API key
+
+It is **not yet public** (absent from `origin/main`); pushing would publish it.
+`background.js` calls it a "browser-restricted public API key — safe to ship in
+extension bundles", and its use as a query param against Google's own
+`aisandbox-pa.googleapis.com` is consistent with that, so it is most likely
+Google's own Flow web-client key rather than Abi's credential. **That is
+unverified** — the restrictions live in a Google Cloud project Abi does not own.
+
+The separate consideration is that `PLAN.md` documents Google's internal Flow API
+surface *and* the client key — a written account of the bypass. Publishing that is
+a ToS and abuse-attribution exposure rather than a credential leak. **Abi's call**,
+and the only reason the push is waiting.
