@@ -82,3 +82,9 @@ video_model_quality/out/
 # Scratch space for one-off scripts and captured command output
 .tmp/
 
+# Agent runtime data: conversation transcripts, long-term memory, benchmark
+# output. Generated state, and a transcript can capture anything the assistant
+# printed -- one of them contained a full config dump carrying three live
+# credentials. Kept on disk, never committed.
+flowkit/agent_data/
+
