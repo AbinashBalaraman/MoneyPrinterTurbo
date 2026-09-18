@@ -13,9 +13,6 @@
  */
 
 const AGENT_WS_URL = 'ws://127.0.0.1:9223';
-// NOTE: This is a browser-restricted public API key — safe to ship in extension bundles.
-const API_KEY = 'REDACTED_GOOGLE_API_KEY';
-
 // labs.google/fx/tools/flow still resolves but redirects here, so in practice a
 // signed-in tab is only ever flow.google.com/*. The legacy patterns stay for an
 // old pinned tab. Every tab lookup in this file goes through this list.

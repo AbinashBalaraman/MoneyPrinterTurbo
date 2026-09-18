@@ -40,7 +40,7 @@ A **standalone** system (no Veogent dependency) that lets a local Python agent g
 | **Get Media** | `GET /v1/media/{mediaId}` | none |
 
 Base: `https://aisandbox-pa.googleapis.com`
-API Key (query param): `REDACTED_GOOGLE_API_KEY`
+API Key (query param): `<GOOGLE_API_KEY from .env>`
 
 ### Payload Structure (from production)
 

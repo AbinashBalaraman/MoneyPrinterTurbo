@@ -65,7 +65,7 @@ WS_PORT = int(os.environ.get("WS_PORT", "9223"))
 # minting the `Bearer ya29.…` this host needs, so these are only reachable with
 # USE_BATCH_RPC=0 on a browser profile that still has an old token.
 GOOGLE_FLOW_API = "https://aisandbox-pa.googleapis.com"
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "REDACTED_GOOGLE_API_KEY")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
 RECAPTCHA_SITE_KEY = os.environ.get("RECAPTCHA_SITE_KEY", "6LdsFiUsAAAAAIjVDZcuLhaHiDn5nnHVXVRQGeMV")
 
 # ─── Flow batchexecute (the current path) ───────────────────
