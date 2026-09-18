@@ -645,6 +645,70 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
     return subtitle_path
 
 
+def _material_seconds(path: str) -> float:
+    """Duration of one prepared material, or 0.0 when it cannot be measured.
+
+    Reads the container with moviepy — the same way ``material.py`` measures what
+    it downloads. Reading a duration does not decode the video, so this is cheap
+    next to the assembly that follows.
+    """
+    try:
+        from moviepy.video.io.VideoFileClip import VideoFileClip
+
+        clip = VideoFileClip(path)
+        try:
+            return float(clip.duration or 0)
+        finally:
+            clip.close()
+    except Exception as exc:
+        logger.warning(
+            f"could not measure prepared material: path={path}, "
+            f"error={type(exc).__name__}, detail={exc}"
+        )
+        return 0.0
+
+
+def _report_material_shortfall(
+    task_id: str, material_paths, required_seconds: float
+) -> None:
+    """Say so when the materials cannot cover the narration.
+
+    The assembly engine fills a timeline that is too short by **looping clips**,
+    which repeats visibly in the published video. That has already shipped once:
+    33 seconds of material against a 39 second narration. Nothing here refuses
+    it, so the least this can do is name it before the render starts, while the
+    numbers are still actionable.
+
+    Deliberately a warning rather than a failure: a shortfall may still be
+    acceptable for a given episode, and this pipeline is meant to run
+    unattended. It must not be silent, though.
+    """
+    if required_seconds <= 0:
+        return
+    measured = [_material_seconds(path) for path in material_paths]
+    total = sum(measured)
+    if total <= 0:
+        logger.warning(
+            "could not measure any prepared material, so the material/narration "
+            f"fit is unverified: task_id={task_id}, count={len(material_paths)}"
+        )
+        return
+    if total >= required_seconds:
+        logger.info(
+            f"materials cover the narration: task_id={task_id}, "
+            f"materials={total:.1f}s, required={required_seconds:.1f}s"
+        )
+        return
+    logger.warning(
+        "video materials are shorter than the narration, so the assembly engine "
+        "will loop clips and the video will visibly repeat: "
+        f"task_id={task_id}, materials={total:.1f}s, "
+        f"required={required_seconds:.1f}s, "
+        f"shortfall={required_seconds - total:.1f}s. "
+        f"Add more material, or shorten the script."
+    )
+
+
 def get_video_materials(
     task_id,
     params,
@@ -1600,6 +1664,17 @@ def _run_pipeline(
             "materials",
             "failed to prepare video materials",
         )
+
+    # Materials are in hand and the narration length is known, so this is the last
+    # cheap point to report a shortfall — before the render spends minutes
+    # producing a video that visibly loops.
+    try:
+        video_count = max(1, int(getattr(params, "video_count", 1) or 1))
+    except (TypeError, ValueError):
+        video_count = 1
+    _report_material_shortfall(
+        task_id, downloaded_videos, float(audio_duration) * video_count
+    )
 
     if stop_at == "materials":
         sm.state.update_task(

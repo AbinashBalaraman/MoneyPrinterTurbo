@@ -2261,5 +2261,74 @@ class TestTaskService(unittest.TestCase):
         print(result)
 
 
+from contextlib import contextmanager as _contextmanager
+
+from loguru import logger as _loguru
+
+
+@_contextmanager
+def captured_loguru(level="INFO"):
+    """Collect loguru records.
+
+    ``assertLogs`` hooks the stdlib logging module, which loguru does not route
+    through, so it captures nothing from this codebase.
+    """
+    messages = []
+    sink_id = _loguru.add(lambda message: messages.append(str(message)), level=level)
+    try:
+        yield messages
+    finally:
+        _loguru.remove(sink_id)
+
+
+class TestMaterialShortfallReport(unittest.TestCase):
+    """Materials shorter than the narration make the engine loop clips, which
+    repeats visibly in the published video — 33s of material against a 39s
+    narration shipped once already. This is the check that says so before the
+    render spends minutes producing it.
+    """
+
+    def test_warns_with_the_exact_shortfall(self):
+        with captured_loguru("WARNING") as logs:
+            with patch.object(tm, "_material_seconds", side_effect=lambda path: 11.0):
+                tm._report_material_shortfall("task-1", ["a", "b", "c"], 39.0)
+        joined = "\n".join(logs)
+        self.assertIn("33.0", joined)
+        self.assertIn("39.0", joined)
+        self.assertIn("loop", joined.lower())
+
+    def test_silent_when_materials_cover_the_narration(self):
+        with captured_loguru("WARNING") as logs:
+            with patch.object(tm, "_material_seconds", side_effect=lambda path: 20.0):
+                tm._report_material_shortfall("task-1", ["a", "b"], 39.0)
+        self.assertFalse(
+            any("loop" in line.lower() for line in logs),
+            "must not warn when the materials cover the narration",
+        )
+
+    def test_unmeasurable_materials_are_reported_as_unverified(self):
+        """Reporting nothing would read as 'fine' when the fit is simply unknown."""
+        with captured_loguru("WARNING") as logs:
+            with patch.object(tm, "_material_seconds", side_effect=lambda path: 0.0):
+                tm._report_material_shortfall("task-1", ["a"], 39.0)
+        self.assertIn("unverified", "\n".join(logs))
+
+    def test_no_narration_length_means_nothing_to_check(self):
+        with captured_loguru("WARNING") as logs:
+            with patch.object(tm, "_material_seconds", side_effect=lambda path: 5.0):
+                tm._report_material_shortfall("task-1", ["a"], 0.0)
+        self.assertEqual(logs, [])
+
+    def test_material_seconds_returns_zero_for_an_unreadable_file(self):
+        """One unreadable material must not abort the task.
+
+        ``_material_seconds`` swallows its own failure and returns 0.0, so the
+        reporter degrades to "unverified" instead of raising.
+        """
+        self.assertEqual(
+            tm._material_seconds("/nonexistent/definitely-not-here.mp4"), 0.0
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
