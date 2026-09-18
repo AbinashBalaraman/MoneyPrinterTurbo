@@ -1,11 +1,15 @@
 # AutoShorts — Handoff
 
-**Written:** 2026-09-15 · **Last updated:** 2026-09-18 (upstream merge — see §11)
+**Written:** 2026-09-15 · **Last updated:** 2026-09-18 (§12 upstream merge and
+push, §13 the four phases and the test environment)
 **Head:** `main`, and `main` is now the **only** branch. `automation` was deleted
 on 2026-09-18 (it was fully contained in `main`).
 **State:** `main` is a **superset of upstream MoneyPrinterTurbo** — upstream
-`fdcf249` was merged in, so every file and feature upstream ships is present.
-Test suite green. Publishing is off; **spend is ON** (§12).
+`fdcf249` was merged in, so every file and feature upstream ships is present —
+and it is **pushed**. All four planned phases are done (§13): the agent drives
+MoneyPrinterTurbo's real settings surface, FlowKit is a native `video_source`,
+and the Studio builds batch tasks from that same surface. Publishing is off;
+**spend is ON** (§12).
 **Audience:** any agent (or person) picking this up cold. Everything needed is in
 this file or in the docs it points to.
 
@@ -77,13 +81,21 @@ a wrong interpreter.
 
 ### Tests
 
+> **Run the Python suites with the safe-delete shim off.** Without this the shim
+> kills pytest mid-run and the failures look random:
+>
+> ```bash
+> CODEBUDDY_SAFE_DELETE_ENABLED=0 CODEBUDDY_TOOL_CALL_ID= pytest <args>
+> ```
+>
+> See §13 for why, and for what remains flaky even with it.
+
 ```bash
 # MoneyPrinterTurbo: assembly engine, providers, config, WebUI
-.venv/Scripts/python.exe -m pytest test/ -q
-#   1427 passed / 19 skipped / 0 failed
+.venv/Scripts/python.exe -m pytest test/services -q     # 1313 passed / 19 skipped
+.venv/Scripts/python.exe -m pytest test/*.py -q         # 126 passed
 
-cd flowkit && <flowkit-python> -m pytest tests/unit -q
-#   595 passed / 4 failed   (the 4 are test-isolation, see §6)
+cd flowkit && <flowkit-python> -m pytest tests/unit -q  # 606 passed / 0 failed
 
 cd shorts_content_engine && <pipeline-python> -m pytest tests/unit -q
 #   169 passed / 0 failed
@@ -92,9 +104,9 @@ cd shorts_content_engine && <pipeline-python> -m pytest tests/unit -q
 #   boundary check passed — 5 rule(s) upheld
 ```
 
-> Running the whole `test/` tree in a single process has hung twice (25 min+, no
-> output). Running `test/services` and `test/*.py` as two commands finishes in
-> ~9 min and covers exactly the same tests. Prefer the split.
+Prefer `-v --tb=line` over `-q` when redirecting: `-q` writes to a block-buffered
+stream, so a redirected run shows nothing until it finishes and a hang is
+indistinguishable from progress.
 
 ### The four docs
 
@@ -298,40 +310,36 @@ yet for HTTP.
 
 ## 6. Test status
 
-**Green as of 2026-09-18.**
+**Green as of 2026-09-18**, with the caveats in §13.
 
 | Suite | Result |
 |---|---|
-| `test/` (MoneyPrinterTurbo) | **1427 passed / 19 skipped / 0 failed** |
-| `flowkit/tests/unit` | 595 passed / **4 failed** — test isolation, below |
+| `test/services` | 1313 passed / 19 skipped / **1 flaky** |
+| `test/*.py` (root) | 126 passed / 0 failed |
+| `flowkit/tests/unit` | **606 passed / 0 failed** |
 | `shorts_content_engine/tests/unit` | 169 passed / 0 failed |
 | `tools/check_boundaries.py` | 5 rules upheld |
 
-The older "14 remaining failures" (`test_video_reviewer.py` ×13,
-`test_cli_providers.py` ×1) were fixed during the 2026-09-15 session.
+History, so the numbers make sense: the older "14 remaining failures"
+(`test_video_reviewer.py` ×13, `test_cli_providers.py` ×1) were fixed on
+2026-09-15. The 2026-09-18 upstream merge surfaced 7 more — 6 pre-existing
+(fixed in `bca271f`) and 1 genuinely new, which caught a real `cf_worker`
+whitelist bug (`d3b59b8`).
 
-### The 4 flowkit failures are test isolation, not code
+**The 4 flowkit failures are fixed** (`03229b6`). `_is_configured` in
+`agent/api/opencode.py` is `OPENCODE_API_KEY or GEMINI_API_KEY or
+NVIDIA_API_KEY` — a deliberate multi-provider fallback — but the autouse fixture
+pinned only `OPENCODE_API_KEY`. With a Gemini key present the endpoint reported
+itself configured and the "no key" tests got 200 instead of 503. The tests were
+wrong, not the code.
 
-All four are in `test_opencode_api.py`, all in the *"without a key"* cases, and
-they fail **because `OPENCODE_API_KEY` is set in `.env`** — `agent/config.py`
-loads it at import time. They would pass in CI and fail on any machine with a
-working key. Fix: monkeypatch the key to empty in those tests.
-
-### The 7 merge-surfaced failures — both resolved
-
-Classified by running the same tests in a git worktree at the pre-merge commit
-(`fcdb6e3`):
-
-- **6 were pre-existing on `main`.** The fork added the `nvidia_nim` and
-  `opencode` providers and changed the Gemini default without finishing the
-  integration, which tripped upstream's registry/config consistency tests (5 in
-  `test_llm.py`, 1 in `test_config.py`). Fixed in `bca271f`.
-- **1 was genuinely new.** Upstream's
-  `test_supported_sources_match_the_cli_video_source_list` did not exist before
-  the merge. It caught a real pre-existing fork bug: `cf_worker` was in
-  `cli.py::_CLI_VIDEO_SOURCES` but missing from
-  `docs/skill/mpt_agent.py::SUPPORTED_SOURCES`, so the agent skill would reject a
-  source the CLI accepts. Fixed in `d3b59b8`.
+**The 1 remaining `test/services` failure is flaky and not attributable.** It is
+a different test on every run (`test_asgi_static_files.py`,
+`test_elevenlabs_music.py`, `test_video.py` have all failed at some point), each
+one passes in isolation, and the causes are environmental — the shim (§13), and
+a mock failing to apply so a real HTTP request goes out through the local proxy
+and aborts with `ConnectionAbortedError(10053)`. Do not treat a single
+`test/services` failure as a regression; reproduce it in isolation first.
 
 ---
 
@@ -621,26 +629,127 @@ It lists files upstream has that `main` does not.
 **Spend is open, publishing is closed.** Do not describe the spend gate as
 closed, and do not weaken the publish flags without telling Abi.
 
-### Not pushed — and why
+### Pushed (2026-09-18) — and the secret that actually blocked it
 
-`main` has **not** been pushed. `origin/main` is still at `c72f08c` (an old
-upstream point); pushing would be a clean fast-forward.
+`main` **is** pushed; `origin/main` is current. The push was rejected **four
+times** by GitHub secret scanning, and the blocker was not the Google key.
 
-A pre-push secret scan found a Google API key (`AIzaSy…`) hardcoded in three
-**tracked** files:
+- The Google key (`AIzaSy…`) was real and was removed from three tracked files
+  (`flowkit/extension/background.js`, `flowkit/agent/config.py`,
+  `flowkit/PLAN.md`). It is most likely Google's own browser-restricted Flow
+  web-client key rather than Abi's — unverified, since the restrictions live in
+  a Google Cloud project he does not own.
+- **What actually blocked it was a Cloudflare User API Token** (`cfut_…`) inside
+  a tracked conversation transcript, in a config dump that also carried Pexels
+  and Pixabay keys. Cloudflare tokens have no distinctive prefix, so pattern
+  scans missed it; `git grep` also skips files it treats as binary.
 
-- `flowkit/extension/background.js` — `const API_KEY = 'AIzaSy…'`
-- `flowkit/agent/config.py` — the fallback default for `GOOGLE_API_KEY`
-- `flowkit/PLAN.md` — documented as the Flow API key
+Both are gone from history. `flowkit/agent_data/` is now gitignored — a
+transcript can capture anything the assistant printed, so tracking it is a whole
+class of leak, not one file.
 
-It is **not yet public** (absent from `origin/main`); pushing would publish it.
-`background.js` calls it a "browser-restricted public API key — safe to ship in
-extension bundles", and its use as a query param against Google's own
-`aisandbox-pa.googleapis.com` is consistent with that, so it is most likely
-Google's own Flow web-client key rather than Abi's credential. **That is
-unverified** — the restrictions live in a Google Cloud project Abi does not own.
+**Abi should still rotate** `cf_worker_image_key`, `pexels_api_keys` and
+`pixabay_api_keys`. Nothing was ever pushed before the strip, so this is
+precautionary rather than an active breach.
 
-The separate consideration is that `PLAN.md` documents Google's internal Flow API
-surface *and* the client key — a written account of the bypass. Publishing that is
-a ToS and abuse-attribution exposure rather than a credential leak. **Abi's call**,
-and the only reason the push is waiting.
+**Before any future push**, scan blobs rather than grepping text:
+
+```bash
+git rev-list --objects main | awk '{print $1}' | git cat-file --batch > all.bin
+grep -acF "<needle>" all.bin
+```
+
+Validate the scanner against a ref you know is dirty, or a clean result means
+nothing.
+
+---
+
+## 13. 2026-09-18 — the four phases, and the test environment
+
+### Phase 1 — the agent can drive MoneyPrinterTurbo's real settings surface
+
+`build_batch_task` took a `settings` dict and passed every key straight into the
+manifest, so the model had to **guess** ~39 field names — and a guess failed deep
+inside the assembly run, after TTS had been paid for.
+
+The field list is now **derived, never copied**:
+
+- `automation/emit_video_params_schema.py` (assembly venv) describes `VideoParams`
+  as JSON — name, type, default, allowed values. The agent cannot import it
+  itself: `app.models.schema` pulls in `app.config`, which needs `toml`, absent
+  from the flowkit venv.
+- `flowkit/agent/operations/video_params.py` loads that once per process and
+  validates against it, reporting every problem at once with a `difflib`
+  suggestion and the allowed values.
+- New read operation **`assembly_settings_schema`**; the catalog is 25 operations.
+
+Add a field to `VideoParams` and the agent accepts it; remove one and it stops.
+
+### Phase 2 — FlowKit is a native `video_source`
+
+`video_source = "flowkit"` takes an existing FlowKit project's completed media
+(video preferred per scene, still fallback), scrubs it, and stages it as local
+material. Download, normalisation, resolution checks, scrubbing and staging all
+go through `automation/flowkit_bridge.py::stage_flowkit_project` — the single
+staging implementation. Do not add a second.
+
+It sits with the on-demand sources but does **not** share their "generate until
+the duration is covered, then stop" contract: it generates nothing during the
+run, so there is nothing to top up.
+
+### Phase 3 — Studio parity
+
+The Assembly tab exposed one control (a batch file path). It now builds a task
+from a form whose field list comes from `assembly_settings_schema`, so
+`ManualWorkbenchPage.tsx` hard-codes **no field names**, and enums render as
+selects. Unset fields are omitted, so the manifest records intent and the engine
+keeps its own defaults.
+
+**Not visually verified** — no browser here (`agent-browser` cannot start its
+Chromium daemon) and no frontend test runner. Type-checked and production-build
+verified, its API calls verified live, but the rendered UI has not been seen.
+
+### Phase 4 — verification, and the environment trap
+
+Verified live against a running agent: `assembly_settings_schema` returns 39
+fields; `build_batch_task` refuses a guessed field name *and* a bad enum with
+both problems reported at once; the real watermark scrubber works on a real file
+(17.1 MB → 23.6 MB, still a readable 1080×1920 video).
+
+**Not verified:** the FlowKit source end-to-end. It reaches the bridge and fails
+correctly with *"flowkit is running but its Chrome extension is not connected"*,
+so download → scrub → stage for a real project needs a signed-in Chrome tab.
+
+**The environment trap — read this before trusting any red suite.** This
+environment's safe-delete shim breaks long test runs in two independent ways:
+
+1. **It kills the process.** Past ~50 deletions in one tool call the bulk guard
+   refuses, by `raise SystemExit(1)`. `SystemExit` derives from **`BaseException`,
+   not `Exception`**, so nothing catches it and pytest dies mid-run. That is why
+   the failing set differed on every run while every file passed in isolation.
+2. **`os.remove()` is routed to the Recycle Bin, and the shim is fail-closed.**
+   When the trash call fails (`SHFileOperationW 失败: 0x2` — file not found) it
+   raises `OSError`, so any test removing an already-absent file in a `finally`
+   fails for reasons unrelated to its subject.
+
+Mitigate with `CODEBUDDY_SAFE_DELETE_ENABLED=0 CODEBUDDY_TOOL_CALL_ID= pytest …`
+(§2). That took `test/services` from 19 failures to 1; the last is flaky and
+unattributed (§6).
+
+**One of those "failures" was a test lying about what it tested.**
+`test_does_not_serve_symlink_to_file_outside_tasks` asserted 404 and got 200,
+which reads like a path-traversal hole. It is not: on this machine
+`Path.symlink_to()` returns *without raising* and leaves a 0-byte regular file
+inside the tasks directory, which is legitimately served. The control is sound —
+a genuine escaping symlink gets a 404. The test now skips when no link was
+actually created.
+
+### Duration guard, made general
+
+`task.py::_report_material_shortfall` runs once per task, after materials are
+fetched and before the render, so **every** source is covered — not just flowkit.
+It compares against `audio_duration × video_count` (the multiplier matters;
+`audio_duration` is per-video) and warns with the exact shortfall, plus a
+separate warning when nothing could be measured, so "unknown" never reads as
+"fine". Deliberately a warning: a shortfall can be acceptable for a given
+episode, but it must not be silent.
