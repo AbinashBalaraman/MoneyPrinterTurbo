@@ -48,6 +48,7 @@ _CLI_VIDEO_SOURCES = (
     "muapi",
     "openai_image",
     "cf_worker",
+    "flowkit",
     "local",
 )
 

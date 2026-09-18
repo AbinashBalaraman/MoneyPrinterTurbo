@@ -38,6 +38,7 @@ SUPPORTED_SOURCES = {
     # the CLI accepts must not be rejected here as unsupported.
     "openai_image",
     "cf_worker",
+    "flowkit",
     "local",
 }
 VOLCENGINE_ARK_API_KEY_URL = (
@@ -431,6 +432,12 @@ def missing_config(config_path: Path, cli_args: list[str]) -> tuple[str, list[st
         # 这里显式落空，避免落到下面的通用分支去查找并不存在的
         # cf_worker_api_keys 而误报缺失。
         pass
+    elif source == "flowkit":
+        # FlowKit 来源不在本次运行中生成内容：它取回某个已存在的 FlowKit
+        # 项目的已完成素材并去水印。所以必填项是项目引用，而不是 API Key。
+        # 通用分支会去找并不存在的 flowkit_api_keys，必须显式处理。
+        if not _has_configured_value(_plain_config_value(text, "flowkit_project")):
+            missing.append("flowkit_project")
     elif source != "local":
         value = _plain_config_value(text, f"{source}_api_keys")
         if not _has_configured_value(value):

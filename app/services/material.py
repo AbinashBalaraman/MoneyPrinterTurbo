@@ -1758,6 +1758,120 @@ def _download_videos_cf_worker_on_demand(
     return video_paths
 
 
+def _staged_material_seconds(path: str) -> float:
+    """Duration of a staged material in seconds, or 0.0 when unmeasurable."""
+    try:
+        clip = VideoFileClip(path)
+    except Exception as exc:
+        logger.warning(
+            f"could not measure staged material duration: path={path}, "
+            f"error={type(exc).__name__}, detail={exc}"
+        )
+        return 0.0
+    try:
+        return float(clip.duration or 0)
+    finally:
+        try:
+            clip.close()
+        except Exception:
+            pass
+
+
+def _download_videos_flowkit_on_demand(
+    *,
+    task_id: str,
+    search_terms: List[str],
+    video_aspect: VideoAspect,
+    audio_duration: float,
+    max_clip_duration: int,
+    material_directory: str,
+) -> List[str]:
+    """
+    取回某个 FlowKit 项目的已完成素材（优先视频，退回图片），去水印后作为本地素材。
+
+    与 WaveSpeed / 方舟 / OFox 等按次计费的生成源不同，本来源**不在本次运行中
+    生成任何内容**：素材由 FlowKit 工作流产生，这里只负责下载、去水印、落地。
+    因此没有"凑够时长就停止"的语义——项目里有多少已完成素材就用多少，
+    ``search_terms`` 也不参与（场景顺序由项目自身的故事板决定）。
+
+    也正因为不生成，它无法补足旁白时长。素材短于旁白时合成引擎会循环片段，
+    这在成片里肉眼可见（历史上有过 33s 素材对 39s 旁白），所以这里直接报出来，
+    而不是留给别人在输出里发现。
+
+    下载、去水印、格式归一化全部复用 ``automation/flowkit_bridge.py`` 的
+    ``stage_flowkit_project``——那是本项目唯一的 FlowKit 落地实现，复制一份
+    就等于制造第二套标准。
+    """
+    from automation.flowkit_bridge import (
+        FlowkitError,
+        ProjectScrubber,
+        stage_flowkit_project,
+    )
+
+    project_ref = str(config.app.get("flowkit_project", "") or "").strip()
+    if not project_ref:
+        raise FlowkitError(
+            "video_source=flowkit needs a FlowKit project: set flowkit_project in "
+            "config.toml or FLOWKIT_PROJECT in .env."
+        )
+    media = str(config.app.get("flowkit_media", "") or "auto").strip().lower()
+
+    base_dir = (
+        Path(material_directory)
+        if material_directory
+        else Path(utils.task_dir(task_id))
+    )
+    base_dir.mkdir(parents=True, exist_ok=True)
+
+    # Same fail-loud contract as the bridge: a missing ffmpeg must not silently
+    # ship watermarked material into the published video.
+    scrubber = ProjectScrubber()
+    if not scrubber.available():
+        raise FlowkitError(
+            "watermark scrubbing needs ffmpeg on PATH; refusing to stage FlowKit "
+            "media that would carry the watermark into the final video."
+        )
+
+    staged, narration = stage_flowkit_project(
+        project_ref,
+        base_dir.name,
+        clip_duration=max_clip_duration,
+        scrubber=scrubber,
+        local_videos_dir=base_dir.parent,
+        media=media,
+    )
+    video_paths = [str(item.absolute_path) for item in staged]
+
+    try:
+        required_duration = float(audio_duration)
+    except (TypeError, ValueError):
+        required_duration = 0.0
+    staged_duration = sum(_staged_material_seconds(p) for p in video_paths)
+    logger.info(
+        f"staged {len(video_paths)} FlowKit material(s) for project "
+        f"{project_ref!r}: staged={staged_duration:.1f}s, "
+        f"narration={required_duration:.1f}s"
+    )
+    if required_duration > 0 and staged_duration < required_duration:
+        # Reported, not raised: the project's media is what it is, and refusing
+        # here would block a run that may still be acceptable. The assembly
+        # engine will loop clips to fill the gap -- say so now.
+        logger.warning(
+            "FlowKit media is shorter than the narration, so the assembly engine "
+            f"will loop clips and the video will visibly repeat: "
+            f"staged={staged_duration:.1f}s, narration={required_duration:.1f}s, "
+            f"shortfall={required_duration - staged_duration:.1f}s. Generate more "
+            f"completed scenes in the FlowKit project, or shorten the script."
+        )
+    if narration:
+        logger.info(
+            "FlowKit storyboard narration is available for this project "
+            f"({len(narration)} chars); it is not applied here because this source "
+            f"only supplies materials."
+        )
+    return video_paths
+
+
 def _search_videos_with_cache(
     provider: str,
     search_videos: Callable[..., List[MaterialInfo]],
@@ -1962,6 +2076,18 @@ def download_videos(
         )
     if source in ("cf_worker", "cf_worker_image"):
         return _download_videos_cf_worker_on_demand(
+            task_id=task_id,
+            search_terms=search_terms,
+            video_aspect=video_aspect,
+            audio_duration=audio_duration,
+            max_clip_duration=max_clip_duration,
+            material_directory=material_directory,
+        )
+    if source == "flowkit":
+        # 素材来自 FlowKit 工作流：本来源只取回、去水印、落地，不在本次运行中
+        # 生成任何内容，因此没有按需付费的"凑够时长就停止"语义，也不参与 24
+        # 小时搜索缓存——产物是任务专属的本地文件。
+        return _download_videos_flowkit_on_demand(
             task_id=task_id,
             search_terms=search_terms,
             video_aspect=video_aspect,

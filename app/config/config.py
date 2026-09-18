@@ -650,6 +650,10 @@ def _sync_env_to_config():
         "OPENCODE_REASONING": ("app", "opencode_reasoning"),
         "CF_WORKER_IMAGE_URL": ("app", "cf_worker_image_url"),
         "CF_WORKER_IMAGE_KEY": ("app", "cf_worker_image_key"),
+        # FlowKit material source. The project reference is required when
+        # video_source=flowkit; the media mode picks video over still.
+        "FLOWKIT_PROJECT": ("app", "flowkit_project"),
+        "FLOWKIT_MEDIA": ("app", "flowkit_media"),
         # Publish path (Upload-Post). Kept env-driven so the automation pipeline
         # can be configured entirely from .env without editing config.toml.
         "UPLOAD_POST_API_KEY": ("app", "upload_post_api_key"),
