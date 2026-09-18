@@ -149,6 +149,30 @@ async def run_assembly_cli(args: list[str], *, timeout: float = 1800.0) -> dict[
     return result
 
 
+async def run_assembly_module(
+    module: str, args: list[str], *, timeout: float = 120.0
+) -> dict[str, Any]:
+    """Run a module inside the assembly venv and return its captured output.
+
+    Anything that needs to ``import app`` has to go through the assembly
+    interpreter — the agent's own venv does not have those dependencies. This is
+    the general form of :func:`run_bridge`, and exists so a second caller does not
+    grow a second copy of the interpreter guard.
+    """
+    if not Path(config.ASSEMBLY_PYTHON).exists():
+        raise OperationError(
+            f"Assembly interpreter not found at {config.ASSEMBLY_PYTHON}. "
+            f"Set ASSEMBLY_PYTHON in AutoShorts/.env."
+        )
+    result = await _run(
+        [config.ASSEMBLY_PYTHON, "-m", module, *args],
+        cwd=WORKSPACE_ROOT,
+        timeout=min(timeout, COMMAND_TIMEOUT_MAX),
+    )
+    result["command"] = " ".join([module, *args])
+    return result
+
+
 async def run_bridge(args: list[str], *, timeout: float = 1200.0) -> dict[str, Any]:
     """Run the FlowKit staging bridge (``automation/flowkit_bridge.py``).
 
@@ -157,15 +181,8 @@ async def run_bridge(args: list[str], *, timeout: float = 1200.0) -> dict[str, A
     CLI rather than re-implementing staging here is what keeps one staging
     standard instead of two.
     """
-    if not Path(config.ASSEMBLY_PYTHON).exists():
-        raise OperationError(
-            f"Assembly interpreter not found at {config.ASSEMBLY_PYTHON}. "
-            f"Set ASSEMBLY_PYTHON in AutoShorts/.env."
-        )
-    result = await _run(
-        [config.ASSEMBLY_PYTHON, "-m", "automation.flowkit_bridge", *args],
-        cwd=WORKSPACE_ROOT,
-        timeout=min(timeout, COMMAND_TIMEOUT_MAX),
+    result = await run_assembly_module(
+        "automation.flowkit_bridge", args, timeout=timeout
     )
     result["command"] = " ".join(["flowkit_bridge", *args])
     return result

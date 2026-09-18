@@ -17,7 +17,14 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from agent.operations.registry import RISK_SPEND, RISK_WRITE, OperationError, operation
+from agent.operations import video_params
+from agent.operations.registry import (
+    RISK_READ,
+    RISK_SPEND,
+    RISK_WRITE,
+    OperationError,
+    operation,
+)
 from agent.operations.shell import WORKSPACE_ROOT, run_assembly_cli, run_bridge
 
 logger = logging.getLogger(__name__)
@@ -98,6 +105,24 @@ async def _stage_flowkit_project(project_ref: str, task_tag: str) -> dict:
 
 
 @operation(
+    name="assembly_settings_schema",
+    department="assembly",
+    risk=RISK_READ,
+    description=(
+        "List every assembly setting build_batch_task accepts, with defaults and "
+        "the allowed values for enum fields. Derived from MoneyPrinterTurbo's "
+        "VideoParams, so it cannot drift from what the engine really takes. Call "
+        "this instead of guessing field names."
+    ),
+    args={"refresh": "optional bool; re-read after changing VideoParams"},
+)
+async def assembly_settings_schema(refresh: bool = False) -> dict:
+    """Describe the MoneyPrinterTurbo settings surface."""
+    schema = await video_params.load_schema(refresh=bool(refresh))
+    return video_params.summarise(schema)
+
+
+@operation(
     name="build_batch_task",
     department="assembly",
     risk=RISK_WRITE,
@@ -105,7 +130,9 @@ async def _stage_flowkit_project(project_ref: str, task_tag: str) -> dict:
         "Build a MoneyPrinterTurbo batch task file: subject, script, terms and "
         "the full assembly settings surface (voice_*, bgm_*, subtitle_*, "
         "video_source, video_aspect, video_concat_mode, video_transition_mode, "
-        "font_*, stroke_*, ...). Optionally stages a FlowKit project's completed "
+        "font_*, stroke_*, ...). Settings are validated against VideoParams, so "
+        "an unknown or impossible value is refused here rather than mid-assembly. "
+        "Optionally stages a FlowKit project's completed "
         "videos and stills in as scrubbed local materials (single staging "
         "implementation in automation/flowkit_bridge.py). Writes the file only — run "
         "assemble_episode on the returned manifest to spend compute."
@@ -114,7 +141,10 @@ async def _stage_flowkit_project(project_ref: str, task_tag: str) -> dict:
         "subject": "video topic (required)",
         "script": "narration script; omitted = engine generates from subject",
         "terms": "material search keywords",
-        "settings": "VideoParams overrides, e.g. voice_name, bgm_volume, font_size",
+        "settings": (
+            "VideoParams overrides, e.g. voice_name, bgm_volume, font_size. "
+            "Validated; see assembly_settings_schema for the full list."
+        ),
         "flowkit_project": "FlowKit project id or name whose media become materials",
     },
 )
@@ -130,6 +160,13 @@ async def build_batch_task(
         raise OperationError("build_batch_task needs a 'subject'.")
     if settings is not None and not isinstance(settings, dict):
         raise OperationError("'settings' must be an object of VideoParams fields.")
+
+    if settings:
+        # Reject unknown keys and impossible values here, where the message can
+        # name the offending field and list what is allowed -- rather than in the
+        # assembly engine minutes later, after narration and TTS have been paid
+        # for. The field list comes from VideoParams, never from a copy of it.
+        video_params.validate_settings(settings, await video_params.load_schema())
 
     entry: dict = {"video_subject": subject.strip()}
     if script:

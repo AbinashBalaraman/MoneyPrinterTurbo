@@ -143,3 +143,83 @@ async def test_bridge_failure_is_loud(monkeypatch, tmp_path):
     )
     with pytest.raises(OperationError, match="flowkit staging failed"):
         await _run(subject="Ep 1", flowkit_project="proj-1")
+
+
+# --- settings validation, derived from VideoParams -------------------------
+#
+# These read the real surface out of the assembly venv (cached per process).
+# The point of the feature is that the field list is never hand-copied, so a
+# test that stubbed the surface would not be testing the thing that matters.
+
+
+@pytest.mark.asyncio
+async def test_rejects_unknown_setting_and_suggests_the_real_one(monkeypatch, tmp_path):
+    monkeypatch.setattr(assembly_ops, "WORKSPACE_ROOT", tmp_path)
+    with pytest.raises(OperationError) as excinfo:
+        await _run(subject="Topic", settings={"voice": "en-US-AriaNeural-Female"})
+    message = str(excinfo.value)
+    assert "voice" in message
+    assert "voice_name" in message, "should suggest the real field name"
+
+
+@pytest.mark.asyncio
+async def test_rejects_a_value_the_engine_would_not_accept(monkeypatch, tmp_path):
+    monkeypatch.setattr(assembly_ops, "WORKSPACE_ROOT", tmp_path)
+    with pytest.raises(OperationError) as excinfo:
+        await _run(subject="Topic", settings={"video_aspect": "vertical"})
+    message = str(excinfo.value)
+    assert "video_aspect" in message
+    assert "9:16" in message, "should list the allowed values"
+
+
+@pytest.mark.asyncio
+async def test_rejects_a_wrongly_typed_value(monkeypatch, tmp_path):
+    monkeypatch.setattr(assembly_ops, "WORKSPACE_ROOT", tmp_path)
+    with pytest.raises(OperationError, match="font_size"):
+        await _run(subject="Topic", settings={"font_size": "big"})
+
+
+@pytest.mark.asyncio
+async def test_reports_every_problem_at_once(monkeypatch, tmp_path):
+    """One round trip should be enough to fix all the mistakes."""
+    monkeypatch.setattr(assembly_ops, "WORKSPACE_ROOT", tmp_path)
+    with pytest.raises(OperationError) as excinfo:
+        await _run(subject="Topic", settings={"nope": 1, "video_aspect": "vertical"})
+    message = str(excinfo.value)
+    assert "nope" in message and "video_aspect" in message
+
+
+@pytest.mark.asyncio
+async def test_schema_op_describes_the_surface():
+    from agent.operations.registry import get
+
+    described = await get("assembly_settings_schema").handler()
+    assert described["field_count"] >= 35
+    assert "video_subject" in described["required"]
+    assert "video_aspect" in described["fields_with_allowed_values"]
+    assert "9:16" in described["fields_with_allowed_values"]["video_aspect"]
+    names = {field["name"] for field in described["fields"]}
+    assert {"voice_name", "bgm_volume", "font_size", "subtitle_enabled"} <= names
+
+
+@pytest.mark.asyncio
+async def test_schema_op_is_read_risk():
+    assert get("assembly_settings_schema").risk == "read"
+
+
+@pytest.mark.asyncio
+async def test_valid_settings_still_pass(monkeypatch, tmp_path):
+    """The gate must not reject legitimate use — the whole existing surface."""
+    monkeypatch.setattr(assembly_ops, "WORKSPACE_ROOT", tmp_path)
+    out = await _run(
+        subject="Topic",
+        settings={
+            "voice_name": "en-US-AriaNeural-Female",
+            "video_aspect": "9:16",
+            "video_concat_mode": "sequential",
+            "bgm_volume": 0.2,
+            "subtitle_enabled": True,
+            "font_size": 60,
+        },
+    )
+    assert "video_aspect" in out["settings_applied"]
