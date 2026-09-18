@@ -92,7 +92,7 @@ a wrong interpreter.
 
 ```bash
 # MoneyPrinterTurbo: assembly engine, providers, config, WebUI
-.venv/Scripts/python.exe -m pytest test/services -q     # 1313 passed / 19 skipped
+.venv/Scripts/python.exe -m pytest test/services -q     # 1314 passed / 19 skipped
 .venv/Scripts/python.exe -m pytest test/*.py -q         # 126 passed
 
 cd flowkit && <flowkit-python> -m pytest tests/unit -q  # 606 passed / 0 failed
@@ -314,7 +314,7 @@ yet for HTTP.
 
 | Suite | Result |
 |---|---|
-| `test/services` | 1313 passed / 19 skipped / **1 flaky** |
+| `test/services` | **1314 passed / 19 skipped / 0 failed** |
 | `test/*.py` (root) | 126 passed / 0 failed |
 | `flowkit/tests/unit` | **606 passed / 0 failed** |
 | `shorts_content_engine/tests/unit` | 169 passed / 0 failed |
@@ -333,13 +333,20 @@ pinned only `OPENCODE_API_KEY`. With a Gemini key present the endpoint reported
 itself configured and the "no key" tests got 200 instead of 503. The tests were
 wrong, not the code.
 
-**The 1 remaining `test/services` failure is flaky and not attributable.** It is
-a different test on every run (`test_asgi_static_files.py`,
-`test_elevenlabs_music.py`, `test_video.py` have all failed at some point), each
-one passes in isolation, and the causes are environmental — the shim (§13), and
-a mock failing to apply so a real HTTP request goes out through the local proxy
-and aborts with `ConnectionAbortedError(10053)`. Do not treat a single
-`test/services` failure as a regression; reproduce it in isolation first.
+**The last `test/services` failure is fixed** — and it was a test-isolation bug,
+not a code one. `app.config` keeps settings in module-level dicts, and sixteen
+test files mutate them directly (`config.app["api_key"] = …`). Most restore what
+they change, but in their own `tearDown`, so one failure during `setUp` leaks a
+value into every later test. The symptom: a full-suite run fails a test that
+passes on its own, and *which* test fails moves between runs —
+`test_configured_key_protects_task_file` did exactly that.
+
+`test/conftest.py` now snapshots every dict on `config` before each test and
+restores it in place afterwards. **Do not add per-file config restoration** — it
+is handled, and that duplication is what caused the problem.
+
+If a `test/services` failure appears again, reproduce it in isolation first, and
+check §13's shim notes before assuming a regression.
 
 ---
 
