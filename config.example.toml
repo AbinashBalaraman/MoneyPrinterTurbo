@@ -273,8 +273,8 @@ openai_model_name = ""
 
 # OpenCode AI Zen
 opencode_api_key = ""
-opencode_base_url = "https://opencode.ai/zen/v1"
-opencode_model_name = "muse-spark-1.3-contributor-free"
+opencode_base_url = ""
+opencode_model_name = ""
 opencode_reasoning = ""
 
 # Anthropic Claude, called through the OpenAI-compatible endpoint.
@@ -287,6 +287,12 @@ anthropic_model_name = ""
 # API key: https://aistudio.google.com/app/apikey
 gemini_api_key = ""
 gemini_model_name = ""
+
+# NVIDIA NIM
+# API key: https://build.nvidia.com/
+nvidia_nim_api_key = ""
+nvidia_nim_base_url = ""
+nvidia_nim_model_name = ""
 
 # DeepSeek
 # API key: https://platform.deepseek.com/api_keys

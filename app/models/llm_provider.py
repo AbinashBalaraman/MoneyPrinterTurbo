@@ -253,10 +253,10 @@ LLM_PROVIDER_REGISTRY = (
         "Google Gemini",
         adapter="gemini",
         api_key_url="https://aistudio.google.com/app/apikey",
-        default_model="gemini-2.5-flash",
+        default_model="gemini-3.1-pro-preview",
         requires_base_url=False,
         show_base_url=False,
-        deprecated_models=("gemini-pro", "gemini-1.0-pro"),
+        deprecated_models=("gemini-pro", "gemini-1.0-pro", "gemini-2.5-flash"),
     ),
     LLMProviderSpec(
         "nvidia_nim",
