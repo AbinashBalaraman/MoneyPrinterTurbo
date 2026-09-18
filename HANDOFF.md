@@ -720,6 +720,37 @@ both problems reported at once; the real watermark scrubber works on a real file
 correctly with *"flowkit is running but its Chrome extension is not connected"*,
 so download → scrub → stage for a real project needs a signed-in Chrome tab.
 
+**Update (same day, extension connected):** the extension does connect, and the
+source then gets as far as the download:
+
+```
+extension connected → project resolved → 6 scenes fetched → download attempted
+→ HTTP 403
+```
+
+**The 403 is expiry, not credentials.** Flow serves media through signed,
+expiring URLs; the database keeps a scene marked `COMPLETED` with its URL, but
+the URL dies a few days after generation. Measured: **13 of 13 signed URLs across
+both projects were expired** (0 valid), `Expires` ~5 days in the past, and a
+plain `curl --noproxy '*'` of the same URL also returns 403.
+
+So the source works, and the staging window is simply short:
+
+- it is fine for normal unattended operation, where media is generated and
+  assembled promptly;
+- **re-staging an old project fails and cannot be recovered** — the scene has to
+  be regenerated in FlowKit. `farmer_and_rusty` and `Stickman Legends` are both
+  in that state.
+
+The bridge fails loudly rather than staging nothing, and the message now says
+this outright (`_download_error`).
+
+**Project references must be exact.** `farmer_and_rusty` does **not** resolve —
+the project is `farmer_and_rusty - Ep 1: The Whispering Furrow`
+(`f5ce611c-3f4c-471d-8dcf-c26059defa3f`). The error now suggests the full name and
+lists what exists. It deliberately does not auto-resolve a prefix: silently
+picking a project is how a run stages the wrong episode.
+
 **The environment trap — read this before trusting any red suite.** This
 environment's safe-delete shim breaks long test runs in two independent ways:
 
