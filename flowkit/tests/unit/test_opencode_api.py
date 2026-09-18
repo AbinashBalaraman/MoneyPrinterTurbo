@@ -173,16 +173,23 @@ def _fresh_catalogue(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _no_key_by_default(monkeypatch):
-    """Keep the key state hermetic.
+    """Keep the provider-key state hermetic.
 
     `agent.config` reads the shared repository `.env`, so on a real developer
-    machine OPENCODE_API_KEY is usually populated. The "no key configured"
-    cases below must not depend on that ambient state, so pin it empty here and
-    let the `with_key` fixture opt in explicitly.
+    machine these are usually populated. The "not configured" cases below must
+    not depend on that ambient state, so pin them empty here and let the
+    `with_key` fixture opt in explicitly.
+
+    All three are pinned, not just OpenCode. `_is_configured` in
+    `agent/api/opencode.py` accepts GEMINI_API_KEY or NVIDIA_API_KEY as
+    fallbacks, because the assistant routes to those providers when OpenCode is
+    unavailable. Pinning only OPENCODE_API_KEY leaves the endpoint configured,
+    so these tests failed on every machine holding a Gemini or NVIDIA key.
     """
     from agent import config
 
-    monkeypatch.setattr(config, "OPENCODE_API_KEY", "")
+    for name in ("OPENCODE_API_KEY", "GEMINI_API_KEY", "NVIDIA_API_KEY"):
+        monkeypatch.setattr(config, name, "")
     yield
 
 
