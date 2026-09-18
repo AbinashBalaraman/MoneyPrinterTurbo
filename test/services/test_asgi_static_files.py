@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -103,6 +104,21 @@ class TestTaskStaticFiles(unittest.TestCase):
                 exposed_link.symlink_to(secret)
             except (NotImplementedError, OSError) as error:
                 self.skipTest(f"symbolic links are unavailable: {error}")
+            if not os.path.islink(exposed_link):
+                # Some environments accept symlink_to without raising and leave
+                # an empty regular file behind instead of a link. Measured on
+                # this Windows setup: the call returns, islink() is False, and a
+                # 0-byte file appears.
+                #
+                # The scenario cannot be built, and asserting anyway would fail
+                # for the wrong reason -- a real file inside the tasks directory
+                # is legitimately served. Skip instead of reporting a security
+                # failure that is not one. The control itself is fine: a genuine
+                # symlink escaping the directory gets a 404.
+                self.skipTest(
+                    "symlink_to did not produce a symbolic link, so the escape "
+                    "scenario cannot be set up on this machine"
+                )
 
             response = self.client.get(f"/tasks/{task_path.name}/{exposed_link.name}")
 
