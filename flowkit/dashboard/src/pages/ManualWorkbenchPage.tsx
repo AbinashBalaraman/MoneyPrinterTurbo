@@ -66,6 +66,106 @@ interface RunResult {
   durationMs: number
 }
 
+/**
+ * One assembly setting, as described by the agent's `assembly_settings_schema`
+ * operation.
+ *
+ * The agent derives this list from MoneyPrinterTurbo's `VideoParams`, so nothing
+ * in this file knows any field name. Adding a setting there makes it appear
+ * here, and removing one makes it disappear — which is the whole point of
+ * reading the schema rather than hand-writing a form that drifts.
+ *
+ * An unset field is left out of the request entirely and the engine's own
+ * default applies, so the form only ever sends deliberate overrides.
+ */
+interface AssemblySchemaField {
+  name: string
+  type: string
+  default?: unknown
+  required?: boolean
+  allowed?: unknown[]
+  description?: string
+}
+
+function AssemblySettingField({
+  field,
+  value,
+  onChange,
+}: {
+  field: AssemblySchemaField
+  value: any
+  onChange: (name: string, value: any) => void
+}) {
+  const isSet = value !== undefined && value !== ''
+  const fallback = field.default !== undefined ? String(field.default) : '—'
+  const controlClass =
+    'w-full px-2 py-1 rounded text-[11px] border outline-none font-mono'
+  const controlStyle = {
+    background: 'var(--surface)',
+    borderColor: isSet ? '#f59e0b' : 'var(--border)',
+    color: 'var(--text)',
+  }
+  const asString = (v: any) => (v === undefined || v === null ? '' : String(v))
+
+  return (
+    <div className="flex flex-col gap-0.5" title={field.description || field.name}>
+      <label className="text-[10px] font-mono truncate" style={{ color: 'var(--muted)' }}>
+        {field.name}
+        {field.required && <span className="text-amber-400"> *</span>}
+      </label>
+      {field.allowed && field.allowed.length > 0 ? (
+        <select
+          value={isSet ? asString(value) : ''}
+          onChange={e => onChange(field.name, e.target.value)}
+          className={controlClass}
+          style={controlStyle}
+        >
+          <option value="">{`default (${fallback})`}</option>
+          {field.allowed.map(option => (
+            <option key={String(option)} value={String(option)}>
+              {String(option)}
+            </option>
+          ))}
+        </select>
+      ) : field.type === 'bool' ? (
+        <select
+          value={isSet ? asString(value) : ''}
+          onChange={e =>
+            onChange(field.name, e.target.value === '' ? '' : e.target.value === 'true')
+          }
+          className={controlClass}
+          style={controlStyle}
+        >
+          <option value="">{`default (${fallback})`}</option>
+          <option value="true">true</option>
+          <option value="false">false</option>
+        </select>
+      ) : field.type === 'int' || field.type === 'float' ? (
+        <input
+          type="number"
+          step={field.type === 'float' ? '0.05' : '1'}
+          value={isSet ? value : ''}
+          placeholder={fallback}
+          onChange={e =>
+            onChange(field.name, e.target.value === '' ? '' : Number(e.target.value))
+          }
+          className={controlClass}
+          style={controlStyle}
+        />
+      ) : (
+        <input
+          type="text"
+          value={isSet ? asString(value) : ''}
+          placeholder={field.type.startsWith('list[') ? `${fallback} (JSON array)` : fallback}
+          onChange={e => onChange(field.name, e.target.value)}
+          className={controlClass}
+          style={controlStyle}
+        />
+      )}
+    </div>
+  )
+}
+
 const DEPARTMENT_META: Record<string, { label: string; icon: typeof Clapperboard; desc: string }> = {
   ingest: { label: '1. Ingest', icon: ListOrdered, desc: 'Topic backlog, dedup ledger & batch orchestration' },
   director: { label: '2. Director', icon: Clapperboard, desc: 'Scriptwriting, pacing, 5-phase arc & continuity' },
@@ -96,6 +196,16 @@ export default function ManualWorkbenchPage() {
   const [scrubMode, setScrubMode] = useState('delogo')
   
   const [assemblyBatchFile, setAssemblyBatchFile] = useState('storage/tasks/batch_01.json')
+  // Batch-task form. The field list is fetched from the agent, never hard-coded
+  // here — see AssemblySettingField.
+  const [assemblySchema, setAssemblySchema] = useState<AssemblySchemaField[] | null>(null)
+  const [assemblySchemaError, setAssemblySchemaError] = useState<string | null>(null)
+  const [assemblySubject, setAssemblySubject] = useState('')
+  const [assemblyScript, setAssemblyScript] = useState('')
+  const [assemblyTerms, setAssemblyTerms] = useState('')
+  const [assemblyFlowkitProject, setAssemblyFlowkitProject] = useState('')
+  const [assemblyOverrides, setAssemblyOverrides] = useState<Record<string, unknown>>({})
+  const [assemblyShowAll, setAssemblyShowAll] = useState(true)
   
   const [publishSeriesId, setPublishSeriesId] = useState('farmer_and_rusty')
   const [publishEpisodeNum, setPublishEpisodeNum] = useState('1')
@@ -132,6 +242,16 @@ export default function ManualWorkbenchPage() {
     loadCatalog()
     loadArtifacts()
   }, [])
+
+  // Fetch the assembly settings surface the first time the Assembly tab is
+  // opened. Guarded on both the data and the error so a failure is shown once
+  // rather than retried in a loop.
+  useEffect(() => {
+    if (activeDept !== 'assembly') return
+    if (assemblySchema || assemblySchemaError) return
+    void loadAssemblySchema()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDept, assemblySchema, assemblySchemaError])
 
   // Auto-polling queue monitor
   useEffect(() => {
@@ -267,6 +387,10 @@ export default function ManualWorkbenchPage() {
       }
       // Refresh artifacts list
       loadArtifacts()
+      // Returned so a caller that needs the payload itself — the assembly
+      // settings form reads the field list out of it — does not have to scrape
+      // lastResult or issue a second request.
+      return res
     } catch (err: any) {
       const durationMs = Math.round(performance.now() - startTime)
       setLastResult({
@@ -276,10 +400,59 @@ export default function ManualWorkbenchPage() {
         timestamp: new Date().toLocaleTimeString(),
         durationMs,
       })
+      return null
     } finally {
       setRunningOp(null)
     }
   }
+
+  const loadAssemblySchema = async () => {
+    setAssemblySchemaError(null)
+    const res = await executeOperation('assembly_settings_schema', {})
+    const fields = res?.result?.fields
+    if (Array.isArray(fields) && fields.length) {
+      setAssemblySchema(fields)
+    } else {
+      setAssemblySchemaError(
+        res?.error || 'assembly_settings_schema returned no fields',
+      )
+    }
+  }
+
+  const setAssemblyOverride = (name: string, value: unknown) => {
+    setAssemblyOverrides(prev => {
+      const next = { ...prev }
+      if (value === '' || value === undefined || value === null) delete next[name]
+      else next[name] = value
+      return next
+    })
+  }
+
+  const buildAssemblyTask = async () => {
+    const args: Record<string, unknown> = { subject: assemblySubject }
+    if (assemblyScript.trim()) args.script = assemblyScript
+    if (assemblyTerms.trim()) args.terms = assemblyTerms
+    if (assemblyFlowkitProject.trim()) args.flowkit_project = assemblyFlowkitProject.trim()
+    // Only deliberate overrides are sent; everything else keeps the engine's
+    // own default, so the manifest stays a record of intent rather than a dump.
+    if (Object.keys(assemblyOverrides).length) args.settings = assemblyOverrides
+    return executeOperation('build_batch_task', args)
+  }
+
+  const buildAndAssemble = async () => {
+    const res = await buildAssemblyTask()
+    const manifest = res?.result?.manifest
+    // A refused or invalid build already surfaced in the result panel; assembling
+    // nothing would only produce a second, less useful error.
+    if (!manifest) return
+    setAssemblyBatchFile(manifest)
+    await executeOperation('assemble_episode', { batch_file: manifest })
+  }
+
+  const visibleAssemblyFields = (assemblySchema || []).filter(
+    field =>
+      assemblyShowAll || field.required || assemblyOverrides[field.name] !== undefined,
+  )
 
   const copyResult = () => {
     if (!lastResult) return
@@ -913,6 +1086,167 @@ export default function ManualWorkbenchPage() {
               <div className="p-4 rounded-lg border flex flex-col gap-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
+                    <Layers size={15} className="text-amber-400" />
+                    <span className="text-xs font-bold">Batch Task Builder</span>
+                  </div>
+                  {getRiskBadge('write')}
+                </div>
+                <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                  Builds a MoneyPrinterTurbo task file. The settings below are the fields of{' '}
+                  <code className="text-xs">VideoParams</code>, read from the engine itself via{' '}
+                  <code className="text-xs">assembly_settings_schema</code> — so this form cannot
+                  drift from what the engine accepts. Leave a field alone to keep its default.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] block mb-1 font-semibold" style={{ color: 'var(--muted)' }}>
+                      video_subject <span className="text-amber-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={assemblySubject}
+                      onChange={e => setAssemblySubject(e.target.value)}
+                      placeholder="e.g. The farmer who found a machine under his field"
+                      className="w-full px-2.5 py-1.5 rounded text-xs border outline-none"
+                      style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] block mb-1 font-semibold" style={{ color: 'var(--muted)' }}>video_terms</label>
+                    <input
+                      type="text"
+                      value={assemblyTerms}
+                      onChange={e => setAssemblyTerms(e.target.value)}
+                      placeholder="material search keywords, e.g. farm, drone"
+                      className="w-full px-2.5 py-1.5 rounded text-xs border outline-none"
+                      style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] block mb-1 font-semibold" style={{ color: 'var(--muted)' }}>
+                    video_script <span className="font-normal">(optional — the engine writes one from the subject)</span>
+                  </label>
+                  <textarea
+                    value={assemblyScript}
+                    onChange={e => setAssemblyScript(e.target.value)}
+                    rows={3}
+                    placeholder="Hook. Rising. Twist."
+                    className="w-full px-2.5 py-1.5 rounded text-xs border outline-none resize-y"
+                    style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] block mb-1 font-semibold" style={{ color: 'var(--muted)' }}>
+                    flowkit_project <span className="font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={assemblyFlowkitProject}
+                    onChange={e => setAssemblyFlowkitProject(e.target.value)}
+                    placeholder="FlowKit project id or name"
+                    className="w-full px-2.5 py-1.5 rounded text-xs border outline-none font-mono"
+                    style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
+                  />
+                  <span className="text-[10px] mt-1 block" style={{ color: 'var(--muted)' }}>
+                    Stages that project's completed media as scrubbed local materials — completed
+                    video preferred per scene, completed still as fallback.
+                  </span>
+                </div>
+
+                {assemblySchemaError ? (
+                  <div
+                    className="p-3 rounded border flex items-start justify-between gap-3"
+                    style={{ background: 'var(--surface)', borderColor: '#b45309' }}
+                  >
+                    <div className="text-[11px]">
+                      <div className="font-semibold text-amber-400 mb-0.5">
+                        Could not read the settings surface
+                      </div>
+                      <div className="font-mono" style={{ color: 'var(--muted)' }}>{assemblySchemaError}</div>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={loadAssemblySchema} className="h-7 text-xs shrink-0">
+                      Retry
+                    </Button>
+                  </div>
+                ) : !assemblySchema ? (
+                  <div className="text-[11px] flex items-center gap-2" style={{ color: 'var(--muted)' }}>
+                    <RefreshCw size={12} className="animate-spin" />
+                    Reading the assembly settings surface…
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                      <span className="text-[11px] font-semibold">
+                        Assembly settings
+                        <span className="font-normal" style={{ color: 'var(--muted)' }}>
+                          {' '}({assemblySchema.length} fields,{' '}
+                          {Object.keys(assemblyOverrides).length} overridden)
+                        </span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setAssemblyShowAll(v => !v)}
+                          className="text-[10px] underline"
+                          style={{ color: 'var(--muted)' }}
+                        >
+                          {assemblyShowAll ? 'Show overridden only' : 'Show all fields'}
+                        </button>
+                        {Object.keys(assemblyOverrides).length > 0 && (
+                          <button
+                            onClick={() => setAssemblyOverrides({})}
+                            className="text-[10px] underline"
+                            style={{ color: 'var(--muted)' }}
+                          >
+                            Clear overrides
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
+                      {visibleAssemblyFields.map(field => (
+                        <AssemblySettingField
+                          key={field.name}
+                          field={field}
+                          value={assemblyOverrides[field.name]}
+                          onChange={setAssemblyOverride}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <Button
+                    size="sm"
+                    onClick={buildAssemblyTask}
+                    disabled={!assemblySubject.trim() || runningOp === 'build_batch_task'}
+                    className="h-8 gap-2 text-xs"
+                  >
+                    <FileText size={13} />
+                    Build task file
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={buildAndAssemble}
+                    disabled={!assemblySubject.trim() || runningOp === 'build_batch_task' || runningOp === 'assemble_episode'}
+                    className="h-8 gap-2 text-xs bg-amber-600 hover:bg-amber-700"
+                  >
+                    <Scissors size={13} />
+                    Build + assemble
+                  </Button>
+                  <span className="text-[10px]" style={{ color: 'var(--muted)' }}>
+                    "Build + assemble" spends compute and takes minutes per episode.
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-lg border flex flex-col gap-3" style={{ background: 'var(--card)', borderColor: 'var(--border)' }}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
                     <Scissors size={15} className="text-amber-400" />
                     <span className="text-xs font-bold">Video Assembly Engine (MoneyPrinterTurbo)</span>
                   </div>
@@ -931,7 +1265,7 @@ export default function ManualWorkbenchPage() {
                     style={{ background: 'var(--surface)', borderColor: 'var(--border)', color: 'var(--text)' }}
                   />
                   <span className="text-[10px] mt-1 block" style={{ color: 'var(--muted)' }}>
-                    Relative to AutoShorts workspace root or absolute path.
+                    Relative to AutoShorts workspace root or absolute path. Filled in by "Build task file".
                   </span>
                 </div>
                 <div className="pt-2">
