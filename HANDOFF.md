@@ -832,7 +832,6 @@ a genuine escaping symlink gets a 404. The test now skips when no link was
 actually created.
 
 ### Duration guard, made general
-
 `task.py::_report_material_shortfall` runs once per task, after materials are
 fetched and before the render, so **every** source is covered — not just flowkit.
 It compares against `audio_duration × video_count` (the multiplier matters;
@@ -840,3 +839,73 @@ It compares against `audio_duration × video_count` (the multiplier matters;
 separate warning when nothing could be measured, so "unknown" never reads as
 "fine". Deliberately a warning: a shortfall can be acceptable for a given
 episode, but it must not be silent.
+
+## 14. 2026-09-19 — "the AI answered 0"
+
+Abi asked the chat to *create new series "interesting facts" create first video*
+and the assistant replied with a single character: `0`. Reproducing it found
+three separate bugs, none of them in the chat UI.
+
+### 1. The agent could not create a series
+
+There was no operation for it. The model called `direct_episode`, was correctly
+told to run `init-series` first, and had no tool that could — so it spent its
+rounds on `dir` and on probing for modules that do not exist
+(`python -m automation.director`, `python -m pipeline`, `python -m ledger`), and
+replied with nothing at all. The UI rendered the empty reply, which is where the
+`0` came from.
+
+`init-series` had been in `shorts_content_engine/src/cli.py` the whole time. The
+capability was missing from the **catalogue**, not from the project. A tool the
+model cannot see is a tool it does not have. `create_series` added; the catalog
+is **26 operations**.
+
+### 2. The series data was split across two ledgers
+
+The CLI defaults `--db-path` to `storage/ledger.db` **relative to its cwd**,
+which resolves to `shorts_content_engine/storage/ledger.db`. The dashboard's
+continuity panel — and therefore `continuity_status` — reads
+`shorts_content_engine/continuity_ledger.db`. Two different files, measured with
+a different series in each:
+
+```
+continuity_ledger.db  → farmer_and_rusty
+storage/ledger.db     → interesting_facts   (just created through the agent)
+```
+
+So a series created through the agent was invisible to the status tool, and
+`farmer_and_rusty` was invisible to `direct_episode`.
+
+`flowkit/agent/services/ledger.py` is now the **single definition**, in a layer
+both the API and the operations may import, and every ledger verb is passed
+`--db-path` explicitly so the CLI's default never decides where data lands.
+
+### 3. `continuity_status(series_id=…)` failed for every series
+
+It filtered on `s.get("id")`, but the ledger's records key on `series_id` — so
+`id` was always `None`, nothing matched, and asking for a series that *existed*
+still answered *"No series … in the continuity ledger"*. The tool was unusable
+with an argument.
+
+### Verified live, all three
+
+- `create_series` → *"Series Registered Successfully"*;
+- `continuity_status` then lists **both** `interesting_facts` and
+  `farmer_and_rusty` from the same `continuity_ledger.db`;
+- `continuity_status(series_id=…)` returns the right series for both, where it
+  previously raised for both;
+- re-running Abi's exact request now creates the series, directs episode 1,
+  builds the task manifest, and answers with a real summary.
+
+**Known, not fixed:** `shorts_content_engine/*.db` are **tracked** files, so any
+agent action that creates a series or directs an episode leaves the working tree
+dirty. `storage/ledger.db` is now an orphan from the old split. Both are
+pre-existing repository choices rather than bugs, but a ledger of runtime state
+in git will keep showing up as noise.
+
+**Also observed, not addressed:** for a non-fiction series like
+*Interesting Facts*, `direct_episode` still produced a narrative-fiction episode
+(Detective Rex Vance), because the director engine writes 5-phase story arcs. And
+the task manifest the model built used its own script rather than the directed
+episode's. The "create series → direct → generate" chain is not yet joined up;
+the model improvises it.
