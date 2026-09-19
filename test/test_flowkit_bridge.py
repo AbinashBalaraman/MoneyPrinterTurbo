@@ -10,6 +10,7 @@ test fails here rather than at task 1 of an unattended batch.
 """
 
 import io
+import time
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,7 @@ from automation.flowkit_bridge import (
     StagedImage,
     StagedVideo,
     _normalise_image,
+    _signed_url_expiry,
     _slugify,
     apply_to_params,
     fetch_project_scenes,
@@ -892,6 +894,126 @@ def test_project_scrubber_failure_is_loud_and_keeps_original(tmp_path):
     with pytest.raises(FlowkitError, match="scrub failed"):
         scrubber.scrub(target)
     assert target.read_bytes() == b"original"
+
+
+# ---------------------------------------------------------------------------
+# Signed-URL expiry
+#
+# Flow serves media through signed URLs that stop working a few days after
+# generation, while the database goes on reporting the scene as COMPLETED.
+# Measured on the live project: 13 of 13 URLs expired, ~5 days past, and a plain
+# curl of the same URL also returned 403. Staging used to walk the scenes and die
+# partway through; it now refuses up front when nothing is usable.
+# ---------------------------------------------------------------------------
+
+
+def _signed(path: str, expires: int) -> str:
+    return f"https://flow/{path}?Expires={expires}&Signature=abc"
+
+
+def _scene_with_urls(order, image_url=None, video_url=None):
+    scene = project_scene(order, image=bool(image_url), video=bool(video_url))
+    scene["vertical_image_url"] = image_url
+    scene["vertical_video_url"] = video_url
+    return scene
+
+
+def test_signed_url_expiry_reads_the_expires_param():
+    assert _signed_url_expiry(_signed("x.png", 1234)) == 1234
+
+
+def test_signed_url_expiry_is_case_insensitive():
+    assert _signed_url_expiry("https://flow/x.png?expires=99") == 99
+
+
+def test_signed_url_expiry_is_none_when_absent_or_unparseable():
+    """None means "just try it" -- never "expired"."""
+    assert _signed_url_expiry("https://flow/x.png") is None
+    assert _signed_url_expiry("https://flow/x.png?Expires=notanumber") is None
+    assert _signed_url_expiry("not a url at all") is None
+
+
+def test_all_expired_media_is_refused_before_any_download(tmp_path):
+    past = int(time.time()) - 5 * 86400
+    scenes = [
+        _scene_with_urls(0, image_url=_signed("still.png", past)),
+        _scene_with_urls(1, image_url=_signed("still.png", past)),
+    ]
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session(scenes))
+    with pytest.raises(FlowkitError, match="expired"):
+        stage_flowkit_project(
+            "proj-1", "task-expired", source=client, local_videos_dir=tmp_path
+        )
+
+
+def test_still_valid_media_is_staged_normally(tmp_path):
+    future = int(time.time()) + 86400
+    scenes = [
+        _scene_with_urls(0, image_url=_signed("still.png", future)),
+        _scene_with_urls(1, image_url=_signed("still.png", future)),
+    ]
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session(scenes))
+    staged, _ = stage_flowkit_project(
+        "proj-1", "task-live", source=client, local_videos_dir=tmp_path
+    )
+    assert len(staged) == 2
+
+
+def test_url_without_expiry_is_attempted_rather_than_refused(tmp_path):
+    """An unsigned or unfamiliar URL must be tried, not treated as expired."""
+    scenes = [_scene_with_urls(0, image_url="https://flow/still.png")]
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session(scenes))
+    staged, _ = stage_flowkit_project(
+        "proj-1", "task-unsigned", source=client, local_videos_dir=tmp_path
+    )
+    assert len(staged) == 1
+
+
+def test_media_mode_only_considers_the_urls_it_will_use(tmp_path):
+    """media='video' must not refuse because the *stills* expired."""
+    past = int(time.time()) - 86400
+    future = int(time.time()) + 86400
+    scenes = [
+        _scene_with_urls(
+            0,
+            image_url=_signed("still.png", past),
+            video_url=_signed("clip.mp4", future),
+        )
+    ]
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session(scenes))
+    staged, _ = stage_flowkit_project(
+        "proj-1", "task-video", source=client, local_videos_dir=tmp_path, media="video"
+    )
+    assert len(staged) == 1
+    assert isinstance(staged[0], StagedVideo)
+
+
+def test_expired_videos_do_not_block_the_stills_fallback(tmp_path):
+    """media='auto' with expired videos but live stills still stages."""
+    past = int(time.time()) - 86400
+    future = int(time.time()) + 86400
+    scenes = [
+        _scene_with_urls(
+            0,
+            image_url=_signed("still.png", future),
+            video_url=_signed("clip.mp4", past),
+        )
+    ]
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session(scenes))
+    staged, _ = stage_flowkit_project(
+        "proj-1", "task-fallback", source=client, local_videos_dir=tmp_path
+    )
+    assert len(staged) == 1
+    assert isinstance(staged[0], StagedImage)
+
+
+def test_no_scenes_does_not_trip_the_expiry_check(tmp_path):
+    """An empty project must fail for its own reason, not as "expired"."""
+    client = FlowkitImageSource(base_url=FLOWKIT_URL, session=project_session([]))
+    with pytest.raises(FlowkitError, match="no completed"):
+        stage_flowkit_project(
+            "proj-1", "task-empty", source=client, local_videos_dir=tmp_path
+        )
 
 
 

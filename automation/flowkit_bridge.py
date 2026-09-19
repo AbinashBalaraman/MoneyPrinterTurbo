@@ -36,9 +36,11 @@ import logging
 import os
 import re
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Sequence
+from urllib.parse import parse_qsl, urlsplit
 
 import requests
 
@@ -217,6 +219,83 @@ def _download_error(kind: str, status: int, media_id: str) -> str:
             f"media was generated recently."
         )
     return f"{kind} download failed with HTTP {status} for media {media_id}"
+
+
+def _signed_url_expiry(url: str) -> Optional[int]:
+    """The ``Expires`` timestamp on a signed Flow URL, or None if it has none.
+
+    Returns None for anything unparseable, which callers must treat as "let the
+    download decide" rather than "expired" -- refusing to stage a project
+    because a URL did not look the way we expected would be worse than trying it.
+    """
+    try:
+        query = urlsplit(url).query
+    except ValueError:
+        return None
+    for key, value in parse_qsl(query):
+        if key.lower() == "expires":
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def _is_usable(url: Optional[str]) -> bool:
+    """True when a signed URL has not expired, or carries no expiry to check."""
+    if not url:
+        return False
+    expiry = _signed_url_expiry(str(url))
+    return expiry is None or expiry > time.time()
+
+
+def _refuse_if_all_media_expired(
+    scenes: Sequence[dict[str, Any]], media: str, project: dict[str, Any]
+) -> None:
+    """Fail before downloading anything when every scene's media has expired.
+
+    Flow serves media through signed URLs that stop working a few days after
+    generation, while the database goes on reporting the scene as COMPLETED.
+    Measured on this project: 13 of 13 signed URLs expired, ~5 days past, and a
+    plain curl of the same URL also returns 403.
+
+    Without this, staging walks the scenes, downloads what it can, and dies
+    partway through -- wasted work and a failure that points at the first scene
+    rather than at the real cause. For a pipeline meant to run unattended, that
+    is the difference between "regenerate the project" and an hour of reading
+    stack traces.
+
+    Only refuses when *nothing* is usable: a partly-expired project is still
+    worth staging, and the per-download error covers the scenes that fail.
+    """
+    if not scenes:
+        return
+
+    usable = 0
+    expired = 0
+    for scene in scenes:
+        candidates = []
+        if media in ("auto", "video"):
+            candidates.append(scene.get("vertical_video_url"))
+        if media in ("auto", "still"):
+            candidates.append(scene.get("vertical_image_url"))
+        for url in candidates:
+            if not url:
+                continue
+            expiry = _signed_url_expiry(str(url))
+            if expiry is None or expiry > time.time():
+                usable += 1
+            else:
+                expired += 1
+
+    if usable == 0 and expired:
+        name = project.get("name", "?") if isinstance(project, dict) else "?"
+        raise FlowkitError(
+            f"every signed media URL for project {name!r} has expired "
+            f"({expired} checked, none still valid), so there is nothing to "
+            f"download. Flow's media URLs last only a few days. Regenerate the "
+            f"project's media in FlowKit and stage it promptly."
+        )
 
 
 class FlowkitImageSource:
@@ -760,13 +839,27 @@ def stage_flowkit_project(
     client = source or FlowkitImageSource()
     try:
         project, scenes = fetch_project_scenes(client, project_ref)
+        _refuse_if_all_media_expired(scenes, media, project)
         staged: list[Any] = []
         narrations: list[str] = []
         for order, scene in enumerate(scenes):
             video_url = scene.get("vertical_video_url")
-            video_ok = scene.get("vertical_video_status") == "COMPLETED" and video_url
             still_url = scene.get("vertical_image_url")
-            still_ok = scene.get("vertical_image_status") == "COMPLETED" and still_url
+            # "COMPLETED" describes what Flow generated, not what is still
+            # reachable: the URL can have expired since. Treating an expired
+            # video as usable would make media="auto" fail where a perfectly
+            # good still was available, which is the opposite of what the
+            # fallback is for.
+            video_completed = scene.get("vertical_video_status") == "COMPLETED"
+            still_completed = scene.get("vertical_image_status") == "COMPLETED"
+            video_ok = video_completed and _is_usable(video_url)
+            still_ok = still_completed and _is_usable(still_url)
+            if video_completed and video_url and not video_ok:
+                logger.info(
+                    "scene %d has a completed video whose signed URL has expired; "
+                    "using the still if it is still reachable",
+                    order,
+                )
             prompt = str(scene.get("prompt", ""))
             if scene.get("narrator_text"):
                 narrations.append(str(scene["narrator_text"]).strip())
