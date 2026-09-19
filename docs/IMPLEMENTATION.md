@@ -256,7 +256,7 @@ a FastAPI route, once as a chatbot tool — and they can disagree. Instead:
 ```
    agent/operations/            ← the only implementation
      ├── registry.py            name, department, args, risk, handler
-     ├── director.py            direct_episode, validate_script, continuity_status
+     ├── director.py            create_series, direct_episode, validate_script, continuity_status
      ├── render.py              project_status, queue_status, consistency_check
      ├── assembly.py            assemble_episode
      ├── post.py                scrub_video
@@ -308,7 +308,8 @@ What the assistant should be able to do, grouped by the department that owns it.
 ### DIRECTOR
 | Tool | Risk | Does |
 |---|---|---|
-| `direct_episode` | read | Produce an EpisodeManifest for the next episode |
+| `create_series` | write | Create a series in the continuity ledger (init-series) |
+| `direct_episode` | write | Produce an EpisodeManifest for the next episode |
 | `validate_script` | read | 4–6 scenes, ≤10s each, 30–50s total, 5-phase arc |
 | `continuity_status` | read | Series state, last cliffhanger, next hook |
 | **`storyboard`** | read | Still-image prompts + PDF storyboard |

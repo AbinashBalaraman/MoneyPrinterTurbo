@@ -12,6 +12,7 @@ import logging
 
 from agent.operations.registry import RISK_DESTRUCTIVE, RISK_READ, OperationError, operation
 from agent.operations.shell import run_pipeline_cli
+from agent.services.ledger import ledger_path
 
 logger = logging.getLogger(__name__)
 
@@ -110,6 +111,7 @@ async def publish_episode(
             "--platforms", ",".join(wanted),
             "--privacy", privacy,
             "--live",
+            "--db-path", ledger_path(),
         ],
         timeout=1800,
     )

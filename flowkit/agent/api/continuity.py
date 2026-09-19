@@ -11,9 +11,12 @@ from fastapi import APIRouter, HTTPException
 
 router = APIRouter(prefix="/continuity", tags=["continuity"])
 
-# Locate continuity_ledger.db in shorts_content_engine
-ENGINE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "shorts_content_engine"
-DB_PATH = ENGINE_DIR / "continuity_ledger.db"
+# One definition, shared with the operations that *write* the ledger. A second
+# opinion here is what split the data across two files — see
+# agent/services/ledger.py.
+from agent.services.ledger import LEDGER_PATH
+
+DB_PATH = LEDGER_PATH
 
 
 def _get_db() -> sqlite3.Connection:

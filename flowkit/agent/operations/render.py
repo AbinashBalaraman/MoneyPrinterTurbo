@@ -170,11 +170,15 @@ async def generate_episode(manifest_path: str) -> dict:
     here, so this cannot diverge from the CLI path the unattended runner uses.
     """
     from agent.operations.shell import run_pipeline_cli
+    from agent.services.ledger import ledger_path
 
     if not (manifest_path or "").strip():
         raise OperationError("generate_episode needs a 'manifest_path'.")
 
-    result = await run_pipeline_cli(["generate", "--manifest", manifest_path], timeout=1800)
+    result = await run_pipeline_cli(
+        ["generate", "--manifest", manifest_path, "--db-path", ledger_path()],
+        timeout=1800,
+    )
     if result.get("exit_code") != 0:
         raise OperationError(
             f"generate failed (exit {result.get('exit_code')}): "

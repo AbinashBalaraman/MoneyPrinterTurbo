@@ -13,6 +13,7 @@ from pathlib import Path
 
 from agent.operations.registry import RISK_READ, RISK_SPEND, OperationError, operation
 from agent.operations.shell import WORKSPACE_ROOT, run_pipeline_cli
+from agent.services.ledger import ledger_path
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,16 @@ async def run_batch(
     if count < 1:
         raise OperationError("'episodes' must be at least 1.")
 
-    argv = ["batch", "--series-id", series_id, "-n", str(count), "--live"]
+    argv = [
+        "batch",
+        "--series-id",
+        series_id,
+        "-n",
+        str(count),
+        "--live",
+        "--db-path",
+        ledger_path(),
+    ]
     if publish:
         argv += ["--auto-publish", "--publish-live"]
 
