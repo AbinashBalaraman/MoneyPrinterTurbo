@@ -12,13 +12,18 @@ and skipped.
 
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
 import time
 
 AGENT = "http://127.0.0.1:8100"
-MODEL = "gemini-3.8-flash"
+
+#: NVIDIA NIM by default. Gemini's free quota is easily exhausted (429
+#: RESOURCE_EXHAUSTED), and a probe run that dies on the second prompt has not
+#: probed anything. Override with --model.
+DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
 
 PROMPTS = [
     "what series do I have?",
@@ -33,12 +38,12 @@ PROMPTS = [
 ]
 
 
-def ask(prompt: str) -> dict:
+def ask(prompt: str, model: str) -> dict:
     """One turn through the agent tool loop; returns a compact summary."""
     payload = json.dumps(
         {
             "messages": [{"role": "user", "content": prompt}],
-            "model": MODEL,
+            "model": model,
             "use_tools": True,
             "max_rounds": 6,
         }
@@ -56,7 +61,7 @@ def ask(prompt: str) -> dict:
     )
 
     text_parts: list[str] = []
-    tools: list[tuple[str, str, str]] = []
+    tools: list[dict] = []
     errors: list[str] = []
     refused = False
 
@@ -72,11 +77,13 @@ def ask(prompt: str) -> dict:
             text_parts.append(event.get("text") or "")
         elif kind == "tool":
             tools.append(
-                (
-                    event.get("tool", "?"),
-                    event.get("status", "?"),
-                    (event.get("message") or "")[:200],
-                )
+                {
+                    "name": event.get("tool", "?"),
+                    "status": event.get("status", "?"),
+                    "risk": event.get("risk", ""),
+                    "args": event.get("args") or {},
+                    "message": (event.get("message") or "")[:200],
+                }
             )
             if event.get("refused"):
                 refused = True
@@ -92,10 +99,21 @@ def ask(prompt: str) -> dict:
 
 
 def main() -> int:
-    for prompt in PROMPTS:
+    parser = argparse.ArgumentParser(description="Probe the chat agent for bugs.")
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_MODEL,
+        help=f"model id to probe with (default {DEFAULT_MODEL})",
+    )
+    parser.add_argument("prompt", nargs="*", help="optional: probe only these")
+    args = parser.parse_args()
+    prompts = args.prompt or PROMPTS
+    print(f"model: {args.model}")
+
+    for prompt in prompts:
         started = time.monotonic()
         try:
-            result = ask(prompt)
+            result = ask(prompt, args.model)
         except subprocess.TimeoutExpired:
             print(f"\n### {prompt}\n  TIMEOUT after 300s")
             continue
@@ -105,12 +123,18 @@ def main() -> int:
         reply = result["text"] or "(EMPTY REPLY)"
         print(f"  reply: {reply[:300].replace(chr(10), ' | ')}")
 
-        bad = [t for t in result["tools"] if t[1] == "error"]
+        bad = [t for t in result["tools"] if t["status"] == "error"]
         if result["tools"]:
-            names = ", ".join(f"{n}({s})" for n, s, _ in result["tools"])
+            names = ", ".join(f"{t['name']}({t['status']})" for t in result["tools"])
             print(f"  tools: {names}")
-        for name, status, message in bad:
-            print(f"  TOOL FAILED: {name}: {message}")
+        # Show the arguments of anything that changes state. A duplicated write
+        # is invisible without them: the same call twice looks like one tool in
+        # the event stream until you see what it was asked to do.
+        for t in result["tools"]:
+            if t["status"] == "start" and t["risk"] in ("write", "spend", "destructive"):
+                print(f"  {t['risk'].upper()} CALL: {t['name']}({json.dumps(t['args'], ensure_ascii=False)[:220]})")
+        for t in bad:
+            print(f"  TOOL FAILED: {t['name']}: {t['message']}")
         for err in result["errors"]:
             print(f"  STREAM ERROR: {err}")
         if result["refused"]:

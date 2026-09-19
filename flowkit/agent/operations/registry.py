@@ -214,9 +214,13 @@ def check_allowed(
             )
         if not confirm_token:
             return False, (
-                f"Refused: {op.name!r} is destructive and needs explicit "
-                f"confirmation. Ask the user to confirm, then re-issue the call "
-                f"with a \"confirm\" argument."
+                f"Refused: {op.name!r} is destructive and needs confirmation from "
+                f"the person, not from you. Do not re-issue it with a \"confirm\" "
+                f"argument — a model-supplied confirmation is rejected by design, "
+                f"because accepting it would let you authorise a publish by "
+                f"yourself. Tell the user plainly that this one has to be run "
+                f"from the CLI, or through the operations API with an out-of-band "
+                f"confirm token."
             )
         return True, None
 

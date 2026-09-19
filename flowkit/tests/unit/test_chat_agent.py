@@ -341,7 +341,12 @@ class TestRiskGate:
         monkeypatch.setattr(config, "AGENT_ALLOW_SPEND", True)
         out = await chat_agent.execute_tool("publish_episode", {"series_id": "s", "episode": 1})
         assert out["ok"] is False
-        assert "explicit confirmation" in out["error"]
+        assert "needs confirmation from the person" in out["error"]
+        # The refusal must not send the model round a loop. It used to say
+        # "re-issue the call with a confirm argument", which the gate rejects by
+        # design — so the model promised the user a retry that could never work.
+        assert "Do not re-issue it" in out["error"]
+        assert "CLI" in out["error"]
 
     @pytest.mark.asyncio
     async def test_destructive_passes_with_a_confirm_token(self, monkeypatch):
