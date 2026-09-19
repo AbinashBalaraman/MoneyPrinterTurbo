@@ -101,7 +101,7 @@ cd shorts_content_engine && <pipeline-python> -m pytest tests/unit -q
 #   169 passed / 0 failed
 
 <flowkit-python> tools/check_boundaries.py
-#   boundary check passed — 5 rule(s) upheld
+#   boundary check passed — 6 rule(s) upheld
 ```
 
 Prefer `-v --tb=line` over `-q` when redirecting: `-q` writes to a block-buffered
@@ -269,7 +269,7 @@ yet for HTTP.
   feature set, and the WebUI is its headline GUI. `streamlit 1.59.1` is already
   installed in the assembly venv. Reverting is one commit if it turns out to be
   unwanted.
-- `tools/check_boundaries.py` — 5 rules, each mapping to a bug that happened.
+- `tools/check_boundaries.py` — 6 rules, each mapping to a bug that happened.
   **Verified it is not a rubber stamp** (injected a rogue `@operation`, it fired).
 - **The 9 dead `test_result_handler.py` tests now run.** They errored on
   `fixture 'mocker' not found` (`pytest-mock` not installed) and had never
@@ -318,7 +318,7 @@ yet for HTTP.
 | `test/*.py` (root) | 126 passed / 0 failed |
 | `flowkit/tests/unit` | **606 passed / 0 failed** |
 | `shorts_content_engine/tests/unit` | 169 passed / 0 failed |
-| `tools/check_boundaries.py` | 5 rules upheld |
+| `tools/check_boundaries.py` | 6 rules upheld |
 
 History, so the numbers make sense: the older "14 remaining failures"
 (`test_video_reviewer.py` ×13, `test_cli_providers.py` ×1) were fixed on
@@ -931,6 +931,29 @@ generate_episode (live=false) → "Video Generation Completed Successfully"
   previously raised for both;
 - the full **create → direct → generate** chain completes;
 - re-running Abi's exact request answers with a real summary instead of `0`.
+
+### The bug class is now checked, not hand-caught
+
+`generate_episode` was found by hand. Its class — an operation calling the CLI
+with arguments the CLI rejects — is now a **sixth boundary rule**,
+`check_operation_argv_matches_the_cli`. It reads both sides statically (the
+CLI's `add_parser`/`add_argument` setup, and the argv each operation builds), so
+it needs no interpreter, no cwd and no subprocess.
+
+Nothing else caught it: the op was registered, its handler was async, and every
+declared argument was a real parameter. Only the argv was never checked.
+
+Validated by reintroducing the original bug, which it reports as:
+
+```
+[operation-argv] flowkit\agent\operations\render.py
+    generate_episode passes '--manifest' to 'generate', which does not accept it.
+    Valid: --db-path, --episode, --live, --material, --mock, --output-dir,
+           --series-id, --skip-video-render.
+```
+
+It stays quiet when it cannot pin an argv to exactly one known subcommand —
+a check that cries wolf gets deleted.
 
 **Worth knowing:** the publish gate is sound and already tested.
 `check_allowed` requires `allow_spend` *and* an out-of-band confirm token for

@@ -452,7 +452,7 @@ reported the level correctly; `generate_episode` was refused by the gate.
   approval (recoverable from git history and from the originals in `Projects/`).
 
 ### Phase 6 — Guard the boundaries · ✅ DONE
-`tools/check_boundaries.py` — 5 rules, each mapping to a bug that actually
+`tools/check_boundaries.py` — 6 rules, each mapping to a bug that actually
 happened:
 
 | Rule | Catches |
