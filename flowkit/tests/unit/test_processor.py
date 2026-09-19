@@ -414,3 +414,64 @@ class TestHandleFailureReferenceImages:
             await _handle_failure(rid, req, result)
 
         mock_crud.update_scene.assert_awaited_once_with("scene-001", vertical_image_status="FAILED")
+
+
+# ---------------------------------------------------------------------------
+# _handle_failure — an authorisation refusal is not retryable
+# ---------------------------------------------------------------------------
+
+class TestHandleFailureAccessDenied:
+    """Measured on this deployment: Stickman Legends' GENERATE_VIDEO requests
+    failed with PUBLIC_ERROR_MODEL_ACCESS_DENIED, were retried four times each
+    over five minutes, and were refused identically every time before being
+    marked FAILED. The retry budget bought nothing, and the operator ends up
+    with the same failure they could have had immediately.
+    """
+
+    @pytest.mark.asyncio
+    async def test_fails_immediately_instead_of_retrying(self):
+        req = make_req(req_type="GENERATE_VIDEO", scene_id="scene-001", retry_count=0)
+        result = {
+            "error": (
+                "RpcError: eb1hJf failed: [7, None, "
+                "[['type.googleapis.com/google.rpc.ErrorInfo', "
+                "['PUBLIC_ERROR_MODEL_ACCESS_DENIED']]]]"
+            )
+        }
+
+        with patch("agent.worker.processor.crud") as mock_crud:
+            mock_crud.update_request = AsyncMock()
+            mock_crud.update_scene = AsyncMock()
+            await _handle_failure(req["id"], req, result)
+
+        mock_crud.update_request.assert_awaited_once()
+        kwargs = mock_crud.update_request.call_args[1]
+        assert kwargs["status"] == "FAILED"
+        assert "retry_count" not in kwargs
+
+    @pytest.mark.asyncio
+    async def test_error_message_says_what_to_do(self):
+        req = make_req(req_type="GENERATE_VIDEO", scene_id="scene-001", retry_count=0)
+
+        with patch("agent.worker.processor.crud") as mock_crud:
+            mock_crud.update_request = AsyncMock()
+            mock_crud.update_scene = AsyncMock()
+            await _handle_failure(req["id"], req, {"error": "PUBLIC_ERROR_MODEL_ACCESS_DENIED"})
+
+        msg = mock_crud.update_request.call_args[1]["error_message"]
+        assert "does not have access" in msg
+        assert "Retrying cannot change that" in msg
+
+    @pytest.mark.asyncio
+    async def test_a_transient_error_still_retries(self):
+        """Guard against over-matching: an ordinary failure keeps its retries."""
+        req = make_req(req_type="GENERATE_VIDEO", scene_id="scene-001", retry_count=0)
+
+        with patch("agent.worker.processor.crud") as mock_crud:
+            mock_crud.update_request = AsyncMock()
+            mock_crud.update_scene = AsyncMock()
+            await _handle_failure(req["id"], req, {"error": "connection reset by peer"})
+
+        kwargs = mock_crud.update_request.call_args[1]
+        assert kwargs["status"] == "PENDING"
+        assert kwargs["retry_count"] == 1

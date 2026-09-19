@@ -550,6 +550,34 @@ async def _handle_failure(rid: str, req: dict, result: dict, retry_after: dict =
         )
         return
 
+    # An authorisation refusal is a permanent answer: the account does not have
+    # access to the model being asked for, and no amount of retrying grants it.
+    #
+    # Measured on this deployment — Stickman Legends' GENERATE_VIDEO requests
+    # failed with PUBLIC_ERROR_MODEL_ACCESS_DENIED, were retried four times
+    # each over five minutes, and were refused identically every time before
+    # being marked FAILED. The retry budget bought nothing, and the failure the
+    # operator finally sees is the same one they could have had immediately.
+    if (
+        "access_denied" in error_lower
+        or "access denied" in error_lower
+        or "permission_denied" in error_lower
+    ):
+        await crud.update_request(
+            rid,
+            status="FAILED",
+            error_message=(
+                f"{error_msg} — the account does not have access to this model. "
+                f"Retrying cannot change that. Check Flow model access for this "
+                f"account before re-queueing."
+            ),
+        )
+        await _mark_scene_failed(req)
+        logger.error(
+            "Request %s FAILED (not retryable, access denied): %s", rid[:8], error_msg
+        )
+        return
+
     # WS transient errors (extension disconnect/reconnect): retry without incrementing count
     if "extension reconnected" in error_lower or "extension disconnected" in error_lower or "extension not connected" in error_lower:
         await crud.update_request(rid, status="PENDING", error_message=str(error_msg))
