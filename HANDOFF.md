@@ -752,6 +752,27 @@ So the source works, and the staging window is simply short:
 The bridge fails loudly rather than staging nothing, and the message now says
 this outright (`_download_error`).
 
+**Expiry is handled in three places, and the middle one was a real bug:**
+
+1. `_download_error` explains a 403 as expiry rather than as a credential
+   problem.
+2. **`media="auto"` now actually falls back.** The per-scene choice used to be
+   `video_status == "COMPLETED" and video_url` — but `COMPLETED` describes what
+   Flow *generated*, not what is still *reachable*. A scene with a COMPLETED,
+   expired video URL made `auto` fail on the download even when a live still was
+   available: the exact opposite of what a fallback is for, and the state both
+   projects are in. The choice now also requires the URL to be unexpired, and
+   logs when it downgrades.
+3. `_refuse_if_all_media_expired` refuses **before** downloading anything when
+   nothing is usable, instead of walking the scenes and dying partway. It only
+   refuses when *every* URL is expired — a partly-expired project is still worth
+   staging. A URL with no `Expires` parameter is treated as "try it", never as
+   expired.
+
+All three came out of writing tests for the live failure. Point 2 was found
+because a test disagreed with an assumption and the *code* turned out to be
+wrong.
+
 **Project references must be exact.** `farmer_and_rusty` does **not** resolve —
 the project is `farmer_and_rusty - Ep 1: The Whispering Furrow`
 (`f5ce611c-3f4c-471d-8dcf-c26059defa3f`). The error now suggests the full name and
