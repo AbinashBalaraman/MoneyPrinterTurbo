@@ -73,6 +73,171 @@ def _parsed(path: Path):
         return None
 
 
+PIPELINE_CLI = REPO / "shorts_content_engine" / "src" / "cli.py"
+
+
+def _cli_options_by_verb() -> dict[str, set[str]]:
+    """``{verb: {valid --options}}`` from the pipeline CLI's own argparse setup.
+
+    Read from the source rather than by running ``--help``: the check then needs
+    no interpreter, no working directory and no subprocess, so it cannot fail for
+    environmental reasons and be ignored.
+    """
+    tree = _parsed(PIPELINE_CLI)
+    if tree is None:
+        return {}
+
+    # p_init = subparsers.add_parser("init-series", ...) -> {"p_init": "init-series"}
+    parser_vars: dict[str, str] = {}
+    options: dict[str, set[str]] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Call):
+            continue
+        func = node.value.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "add_parser"):
+            continue
+        if not (node.value.args and isinstance(node.value.args[0], ast.Constant)):
+            continue
+        verb = node.value.args[0].value
+        if not isinstance(verb, str):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                parser_vars[target.id] = verb
+                options.setdefault(verb, set())
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "add_argument"):
+            continue
+        if not isinstance(func.value, ast.Name):
+            continue
+        verb = parser_vars.get(func.value.id)
+        if verb is None:
+            continue
+        for arg in node.args:
+            if (
+                isinstance(arg, ast.Constant)
+                and isinstance(arg.value, str)
+                and arg.value.startswith("-")
+            ):
+                options[verb].add(arg.value)
+    return options
+
+
+def _operation_cli_invocations():
+    """``(op name, file, function node, [argv expressions])``."""
+    for path in _py_files(OPERATIONS):
+        tree = _parsed(path)
+        if tree is None:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            is_operation = any(
+                isinstance(d, ast.Call) and getattr(d.func, "id", "") == "operation"
+                for d in node.decorator_list
+            )
+            if not is_operation:
+                continue
+            exprs = [
+                call.args[0]
+                for call in ast.walk(node)
+                if isinstance(call, ast.Call)
+                and getattr(call.func, "id", "") == "run_pipeline_cli"
+                and call.args
+            ]
+            if exprs:
+                yield node.name, path, node, exprs
+
+
+def _argv_strings(expr: ast.AST, fn: ast.AST) -> list[str]:
+    """Every string literal that can end up in this argv.
+
+    Follows a bare name back to its assignments and ``+=`` augmentations in the
+    same function, because that is how these argvs are actually built — the
+    flags added conditionally are just as capable of being wrong as the base
+    ones.
+    """
+    if isinstance(expr, ast.Name):
+        strings: list[str] = []
+        for node in ast.walk(fn):
+            targets = []
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, ast.AugAssign):
+                targets = [node.target]
+            if not any(isinstance(t, ast.Name) and t.id == expr.id for t in targets):
+                continue
+            value = node.value
+            if isinstance(value, (ast.List, ast.Tuple)):
+                strings += [
+                    e.value
+                    for e in value.elts
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str)
+                ]
+        return strings
+    if isinstance(expr, (ast.List, ast.Tuple)):
+        return [
+            e.value
+            for e in expr.elts
+            if isinstance(e, ast.Constant) and isinstance(e.value, str)
+        ]
+    return []
+
+
+def check_operation_argv_matches_the_cli() -> list[Failure]:
+    """Operations must call the pipeline CLI with arguments it actually accepts.
+
+    `generate_episode` ran ``generate --manifest <path>``. That verb has never
+    accepted ``--manifest`` and *requires* ``--series-id``, so every call died
+    with an argparse usage error and the operation could not have worked once.
+    Nothing caught it: the op was registered, its handler was async, and every
+    declared argument was a real parameter. The argv itself was never checked
+    against the CLI it targets.
+
+    This reads both sides statically — the CLI's argparse setup and the argv
+    each operation builds — so the next such mismatch fails here instead of in
+    production.
+    """
+    options_by_verb = _cli_options_by_verb()
+    if not options_by_verb:
+        return [
+            Failure(
+                "operation-argv",
+                PIPELINE_CLI,
+                "could not read any subcommands from the pipeline CLI; the "
+                "parsing below assumes add_parser(...) plus add_argument(...).",
+            )
+        ]
+
+    failures: list[Failure] = []
+    for name, path, fn, exprs in _operation_cli_invocations():
+        for expr in exprs:
+            strings = _argv_strings(expr, fn)
+            if not strings:
+                continue
+            verbs = [s for s in strings if s in options_by_verb]
+            if len(verbs) != 1:
+                # Ambiguous or unrecognised — do not guess and cry wolf.
+                continue
+            verb = verbs[0]
+            valid = options_by_verb[verb]
+            for flag in sorted({s for s in strings if s.startswith("--")}):
+                if flag not in valid:
+                    failures.append(
+                        Failure(
+                            "operation-argv",
+                            path,
+                            f"{name} passes {flag!r} to '{verb}', which does not "
+                            f"accept it. Valid: {', '.join(sorted(valid))}.",
+                        )
+                    )
+    return failures
+
+
 def check_operations_declared_in_one_place() -> list[Failure]:
     """`@operation` may only appear under agent/operations/.
 
@@ -239,6 +404,7 @@ CHECKS = (
     check_operations_do_not_escape_the_shell_layer,
     check_operations_respect_layering,
     check_flowkit_means_one_thing,
+    check_operation_argv_matches_the_cli,
 )
 
 
