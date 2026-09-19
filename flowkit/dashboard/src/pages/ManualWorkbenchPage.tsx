@@ -87,6 +87,22 @@ interface AssemblySchemaField {
   description?: string
 }
 
+/**
+ * Fields that have a first-class argument of their own, and which
+ * `build_batch_task` therefore drops from `settings`:
+ *
+ *     for key, value in (settings or {}).items():
+ *         if key not in ("video_subject", "video_script", "video_terms"):
+ *             entry[key] = value
+ *
+ * The behaviour is deliberate, but rendering them in the grid would offer an
+ * input whose value is silently discarded — you would edit `video_subject`
+ * there, see it accepted, and get a manifest built from the field above
+ * instead. So the grid shows only what it will actually apply, and the three
+ * stay where they belong: in the dedicated inputs.
+ */
+const DEDICATED_ASSEMBLY_FIELDS = ['video_subject', 'video_script', 'video_terms']
+
 function AssemblySettingField({
   field,
   value,
@@ -152,11 +168,34 @@ function AssemblySettingField({
           className={controlClass}
           style={controlStyle}
         />
+      ) : field.type.startsWith('list[') ? (
+        <input
+          type="text"
+          value={
+            isSet ? (Array.isArray(value) ? JSON.stringify(value) : asString(value)) : ''
+          }
+          placeholder={`${fallback} — JSON array, e.g. ["a","b"]`}
+          onChange={e => {
+            const raw = e.target.value
+            if (raw === '') return onChange(field.name, '')
+            // Parse, so the engine receives an actual list rather than a string
+            // that merely looks like one. A value that is not valid JSON is
+            // passed through as text on purpose: validate_settings then names it,
+            // which beats silently sending the wrong type.
+            try {
+              onChange(field.name, JSON.parse(raw))
+            } catch {
+              onChange(field.name, raw)
+            }
+          }}
+          className={controlClass}
+          style={controlStyle}
+        />
       ) : (
         <input
           type="text"
           value={isSet ? asString(value) : ''}
-          placeholder={field.type.startsWith('list[') ? `${fallback} (JSON array)` : fallback}
+          placeholder={fallback}
           onChange={e => onChange(field.name, e.target.value)}
           className={controlClass}
           style={controlStyle}
@@ -449,10 +488,16 @@ export default function ManualWorkbenchPage() {
     await executeOperation('assemble_episode', { batch_file: manifest })
   }
 
-  const visibleAssemblyFields = (assemblySchema || []).filter(
+  const settingsFields = (assemblySchema || []).filter(
+    field => !DEDICATED_ASSEMBLY_FIELDS.includes(field.name),
+  )
+
+  const visibleAssemblyFields = settingsFields.filter(
     field =>
       assemblyShowAll || field.required || assemblyOverrides[field.name] !== undefined,
   )
+
+  const dedicatedCount = (assemblySchema || []).length - settingsFields.length
 
   const copyResult = () => {
     if (!lastResult) return
@@ -1183,7 +1228,9 @@ export default function ManualWorkbenchPage() {
                       <span className="text-[11px] font-semibold">
                         Assembly settings
                         <span className="font-normal" style={{ color: 'var(--muted)' }}>
-                          {' '}({assemblySchema.length} fields,{' '}
+                          {' '}({settingsFields.length} fields
+                          {dedicatedCount > 0 ? `, ${dedicatedCount} set above` : ''}
+                          {', '}
                           {Object.keys(assemblyOverrides).length} overridden)
                         </span>
                       </span>
