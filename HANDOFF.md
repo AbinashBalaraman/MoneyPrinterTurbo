@@ -887,15 +887,57 @@ It filtered on `s.get("id")`, but the ledger's records key on `series_id` — so
 still answered *"No series … in the continuity ledger"*. The tool was unusable
 with an argument.
 
-### Verified live, all three
+### 4. `generate_episode` had never worked once
+
+Chasing the same report further: with the first three fixed, the assistant could
+create a series and direct an episode — but the step that actually renders it was
+broken, so "create first video" still could not finish.
+
+It took a `manifest_path` and ran `generate --manifest <path>`. The pipeline CLI
+has **never** accepted `--manifest`, and it **requires** `--series-id`:
+
+```
+shorts_engine generate: error: the following arguments are required: --series-id
+```
+
+An argparse usage error, so it could not have succeeded even once. The manifest
+comes from the ledger, not a file — `generate` resolves it with
+`ledger.get_episode_manifest(series_id, episode_num)`. The op now takes
+`series_id` and an optional `episode`, and passes the shared `--db-path`.
+
+It also runs `--live` by default. The CLI defaults to `--mock`, but an operation
+whose declared risk is *spend* and whose description promises generation would
+otherwise simulate silently — a quiet no-op of exactly the kind this codebase
+keeps removing. `live=false` gives a deliberate dry run.
+
+`storyboard` also passes `--manifest`; that verb really does accept it, so only
+this one was broken.
+
+**Verified live, the whole chain, spending nothing:**
+
+```
+create_series   → Series Registered Successfully
+direct_episode  → Episode 1 "The Cipher Protocol", 45.0s
+generate_episode (live=false) → "Video Generation Completed Successfully"
+                  Project ID proj_mock_cb338a78 · Video ID vid_mock_efd32b1b
+```
+
+### Verified live, all of it
 
 - `create_series` → *"Series Registered Successfully"*;
 - `continuity_status` then lists **both** `interesting_facts` and
   `farmer_and_rusty` from the same `continuity_ledger.db`;
 - `continuity_status(series_id=…)` returns the right series for both, where it
   previously raised for both;
-- re-running Abi's exact request now creates the series, directs episode 1,
-  builds the task manifest, and answers with a real summary.
+- the full **create → direct → generate** chain completes;
+- re-running Abi's exact request answers with a real summary instead of `0`.
+
+**Worth knowing:** the publish gate is sound and already tested.
+`check_allowed` requires `allow_spend` *and* an out-of-band confirm token for
+`destructive`, the gate sits at the tool-invocation boundary so it cannot be
+gone around, and `test_destructive_rejects_model_confirm_in_args` pins that the
+model's own `{"confirm": true}` is refused. Verified rather than assumed — it
+was the first thing worth checking for a pipeline that publishes publicly.
 
 **Known, not fixed:** `shorts_content_engine/*.db` are **tracked** files, so any
 agent action that creates a series or directs an episode leaves the working tree
