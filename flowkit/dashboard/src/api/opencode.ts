@@ -190,6 +190,31 @@ export function explainUpstreamError(raw: string): UpstreamExplanation | null {
     }
   }
 
+  // Google returns 429 with `status: "RESOURCE_EXHAUSTED"` and a message about
+  // "your current quota" — neither of which matched the rate-limit check below,
+  // so the single most likely failure on this deployment was the one thing the
+  // UI could not explain.
+  if (type === 'RESOURCE_EXHAUSTED' || /exceeded your current quota|quota exceeded/i.test(message)) {
+    return {
+      title: 'This model has no quota left',
+      hint:
+        'The provider refused the request because the quota for this key is used up — ' +
+        'this is a billing/plan limit, not a local fault. Wait for it to reset, raise ' +
+        'the plan, or switch to another model.',
+      switchModel: true
+    }
+  }
+
+  // 503 with `status: "UNAVAILABLE"` and "experiencing high demand". Upstream
+  // and temporary, but it looked like an unexplained failure before.
+  if (type === 'UNAVAILABLE' || /experiencing high demand|currently overloaded/i.test(message)) {
+    return {
+      title: 'The provider is overloaded right now',
+      hint: 'Upstream and usually temporary. Retry in a moment, or switch models.',
+      switchModel: true
+    }
+  }
+
   if (/rate.?limit/i.test(message)) {
     return {
       title: 'Rate limited by the provider',
@@ -208,30 +233,38 @@ export function explainUpstreamError(raw: string): UpstreamExplanation | null {
  * another JSON string, so unwrap up to a few levels before giving up.
  */
 function unwrapErrorPayload(raw: string): { type?: string; message?: string } | null {
-  const levels: Record<string, any>[] = []
-  let current: unknown = raw
+  // Providers wrap their JSON in prose, and sometimes in an array:
+  //
+  //   Model call failed: [{ "error": { "code": 429, "status": "RESOURCE_EXHAUSTED" } }]
+  //
+  // This used to require the string to *start* with '{', so both the prefix and
+  // the array stopped it before it began. Every Gemini failure returned null
+  // here, and the person was shown the raw envelope instead of an explanation —
+  // which, with an empty reply, reads as the assistant saying nothing at all.
+  const text = raw.trim()
+  const start = text.search(/[[{]/)
+  if (start === -1) return null
 
-  for (let depth = 0; depth < 4 && typeof current === 'string'; depth++) {
-    const text = current.trim()
-    if (!text.startsWith('{')) break
-    try {
-      current = JSON.parse(text)
-    } catch {
-      break
-    }
-    if (current && typeof current === 'object') {
-      levels.push(current as Record<string, any>)
-    }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text.slice(start))
+  } catch {
+    return null
   }
+  if (Array.isArray(parsed)) parsed = parsed[0]
+  if (!parsed || typeof parsed !== 'object') return null
 
-  for (const level of levels) {
-    // `{type, error:{type, message}}` and `{error:{type, message}}` both occur.
-    const inner =
-      level.error && typeof level.error === 'object' ? (level.error as Record<string, any>) : level
-    const type = inner.type ?? level.type
-    const message = inner.message ?? level.message
-    if (type || message) return { type, message }
-  }
+  const level = parsed as Record<string, any>
+  // `{type, error:{type, message}}` and `{error:{type, message}}` both occur.
+  const inner =
+    level.error && typeof level.error === 'object' ? (level.error as Record<string, any>) : level
+  const type = inner.type ?? level.type
+  const message = inner.message ?? level.message
+  // Google's errors carry `status` ("RESOURCE_EXHAUSTED", "UNAVAILABLE") where
+  // other providers carry `type`. Surfacing it lets the checks below recognise
+  // them instead of falling through.
+  const status = inner.status ?? level.status
+  if (type || message || status) return { type: type ?? status, message }
 
   return null
 }
