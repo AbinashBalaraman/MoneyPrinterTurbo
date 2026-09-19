@@ -712,9 +712,37 @@ from a form whose field list comes from `assembly_settings_schema`, so
 selects. Unset fields are omitted, so the manifest records intent and the engine
 keeps its own defaults.
 
-**Not visually verified** — no browser here (`agent-browser` cannot start its
-Chromium daemon) and no frontend test runner. Type-checked and production-build
-verified, its API calls verified live, but the rendered UI has not been seen.
+**Verified in a real browser** (Aside Browser via the `aside` MCP, 2026-09-19).
+The earlier "not visually verified" note is resolved — and looking at the
+rendered form found two traps that type-checking and the production build could
+not:
+
+1. `video_subject`, `video_script` and `video_terms` were rendered **twice** —
+   in the dedicated inputs and again in the generated grid. `build_batch_task`
+   drops them from `settings` on purpose, so editing the grid's copy did
+   nothing: you would fill it in, see it accepted, and get a manifest built from
+   the field above. The grid now excludes them and the header says
+   *"36 fields, 3 set above"*.
+2. List-typed fields were sent as **strings**. The placeholder said "JSON array"
+   but the text was never parsed, so `video_materials` could not be satisfied
+   from the form at all. It is now parsed on input; invalid JSON is passed
+   through as text on purpose so `validate_settings` names it.
+
+End-to-end check: the form fetched the schema, rendered 36 fields, showed
+`video_aspect` as a select, tracked an override live (*"1 overridden"*), and
+built a manifest that on disk is exactly
+
+```json
+[{"video_subject": "Phase 3 UI verification run", "video_aspect": "16:9"}]
+```
+
+— the override applied, no defaults dumped, no dropped fields leaked.
+
+**To reproduce:** start the agent (`:8100`) and the dashboard (`:5173`), then
+`http://127.0.0.1:5173/manual` → **4. Assembly**. The dashboard proxies `/api`
+to `:8100`, so if the form says *"Could not read the settings surface"*, check
+the agent is actually running before suspecting the UI — that is exactly what
+happened the first time, and the UI was fine.
 
 ### Phase 4 — verification, and the environment trap
 
