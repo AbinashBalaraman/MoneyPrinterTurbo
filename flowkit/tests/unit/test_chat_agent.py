@@ -308,7 +308,7 @@ class TestRiskGate:
         from agent import config
 
         monkeypatch.setattr(config, "AGENT_ALLOW_SPEND", False)
-        out = await chat_agent.execute_tool("generate_episode", {"manifest_path": "x.json"})
+        out = await chat_agent.execute_tool("generate_episode", {"series_id": "s"})
         assert out["ok"] is False
         assert out.get("refused") is True
         assert "spends money" in out["error"]
@@ -384,7 +384,7 @@ class TestRiskVisibility:
 
         monkeypatch.setattr(config, "AGENT_ALLOW_SPEND", False)
         model_call, _ = scripted([
-            [{"type": "text", "text": call("generate_episode", {"manifest_path": "m.json"})}],
+            [{"type": "text", "text": call("generate_episode", {"series_id": "s"})}],
             [{"type": "text", "text": "I could not run that."}],
         ])
         events = await collect([{"role": "user", "content": "go"}], model_call)

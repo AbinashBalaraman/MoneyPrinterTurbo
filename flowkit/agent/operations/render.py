@@ -158,27 +158,47 @@ async def consistency_check(project_id: str | None = None) -> dict:
     department="render",
     risk=RISK_SPEND,
     description=(
-        "Queue stills and video for an episode manifest. SPENDS MONEY — requires "
-        "spending to be enabled."
+        "Render an episode: generate its stills and video clips from the "
+        "manifest already stored in the ledger. SPENDS MONEY — requires spending "
+        "to be enabled. Run direct_episode first; this renders what it stored."
     ),
-    args={"manifest_path": "path to the episode manifest JSON"},
+    args={
+        "series_id": "series identifier",
+        "episode": "optional episode index (default: the latest directed)",
+        "live": "true (default) really generates; false simulates offline",
+    },
 )
-async def generate_episode(manifest_path: str) -> dict:
-    """Queue media generation for a manifest via the SCE pipeline.
+async def generate_episode(
+    series_id: str, episode: int | None = None, live: bool = True
+) -> dict:
+    """Render an episode through the pipeline CLI's ``generate`` verb.
 
-    Thin wrapper over the existing CLI verb — deliberately no new pipeline logic
-    here, so this cannot diverge from the CLI path the unattended runner uses.
+    The manifest comes from the ledger, not from a file: ``generate`` resolves it
+    with ``ledger.get_episode_manifest(series_id, episode_num)``.
+
+    This used to take a ``manifest_path`` and run ``generate --manifest <path>``.
+    The CLI has never accepted ``--manifest``, and it *requires* ``--series-id``
+    — so every call died with "the following arguments are required:
+    --series-id", and nothing downstream of ``direct_episode`` could ever run.
+    The operation had never worked once.
+
+    Runs ``--live`` by default. The CLI defaults to ``--mock``, but an operation
+    whose declared risk is *spend* and whose description promises generation
+    silently simulating instead is exactly the kind of quiet no-op this codebase
+    keeps rooting out. Pass ``live=false`` for a deliberate dry run.
     """
     from agent.operations.shell import run_pipeline_cli
     from agent.services.ledger import ledger_path
 
-    if not (manifest_path or "").strip():
-        raise OperationError("generate_episode needs a 'manifest_path'.")
+    if not (series_id or "").strip():
+        raise OperationError("generate_episode needs a 'series_id'.")
 
-    result = await run_pipeline_cli(
-        ["generate", "--manifest", manifest_path, "--db-path", ledger_path()],
-        timeout=1800,
-    )
+    argv = ["generate", "--series-id", series_id.strip(), "--db-path", ledger_path()]
+    if episode is not None:
+        argv += ["--episode", str(int(episode))]
+    argv += ["--live"] if live else ["--mock"]
+
+    result = await run_pipeline_cli(argv, timeout=1800)
     if result.get("exit_code") != 0:
         raise OperationError(
             f"generate failed (exit {result.get('exit_code')}): "

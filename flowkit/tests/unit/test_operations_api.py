@@ -59,7 +59,7 @@ def test_run_operation_read_success():
 def test_run_operation_spend_gated():
     client = _client()
     with patch("agent.config.AGENT_ALLOW_SPEND", False):
-        resp = client.post("/api/operations/run", json={"name": "generate_episode", "args": {"manifest_path": "foo.json"}})
+        resp = client.post("/api/operations/run", json={"name": "generate_episode", "args": {"series_id": "s"}})
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is False
